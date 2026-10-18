@@ -44,7 +44,7 @@ return `<div class="card ev"><div><span class="time">${e.t}</span><b>${e.dl?'⏰
 
 progress(){const {l,x}=lvl();const done=S.going.length;
 return head('Успеваемость')+`
-<div class="stats"><div class="card"><b>${1500+S.xp}</b><small>всего баллов</small></div><div class="card"><b>${l}</b><small>уровень</small></div>
+<div class="stats"><div class="card"><b>${1900+S.xp}</b><small>всего баллов</small></div><div class="card"><b>${l}</b><small>уровень</small></div>
 <div class="card"><b>${86+Math.min(done,14)}%</b><small>посещаемость</small></div><div class="card"><b>${S.qd.length}/${DB.quests.length}</b><small>квестов выполнено</small></div></div>
 <div class="card"><div class="row"><h2>До уровня ${l+1}</h2><small>${x} / 500</small></div><i class="bar"><u style="width:${x/5}%"></u></i></div>
 <div class="card"><h2>Активность за неделю</h2><div class="chart">${DB.week.map(w=>`<div>${w[1]}<u style="height:${w[1]}%"></u>${w[0]}</div>`).join('')}</div></div>
