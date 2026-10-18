@@ -53,7 +53,7 @@ return head('Успеваемость')+`
 profile(){const G=['Пробежать 5 км без остановки','Сдать все нормативы','Войти в топ-3 рейтинга','Тренироваться 3 раза в неделю'];
 const B=[['🔥','Первый шаг',1],['🏃','Бегун',S.xp>=400],['🏆','Квестер',S.qd.length>0],['⭐','Уровень 4',S.xp>=500],['📅','Активист',S.going.length>=2],['👑','Лидер',S.xp>=1000]];
 return head('Профиль')+`
-<div class="card pf"><span class="av">${S.name[0]}</span><h2>${S.name}</h2><small>Университет Астана · ${1500+S.xp} баллов</small><button class="btn sm ghost" data-a="name">Изменить имя</button></div>
+<div class="card pf"><span class="av">${S.name[0]}</span><h2>${S.name}</h2><small>KSTU · ${1500+S.xp} баллов</small><button class="btn sm ghost" data-a="name">Изменить имя</button></div>
 <div class="card"><h2>Мои цели</h2>${G.map((g,i)=>`<div class="goal ${S.goals.includes(i)?'on':''}" data-a="goal" data-id="${i}"><span>${S.goals.includes(i)?'✓':''}</span>${g}</div>`).join('')}</div>
 <div class="card"><h2 style="margin-bottom:10px">Достижения</h2><div class="badges">${B.map(b=>`<div class="bd ${b[2]?'':'off'}"><i>${b[0]}</i>${b[1]}</div>`).join('')}</div></div>
 <button class="btn ghost" data-a="reset">Сбросить прогресс</button>`},
