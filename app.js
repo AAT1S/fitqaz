@@ -14,7 +14,7 @@ try{S={...S,...JSON.parse(localStorage.getItem('fitqaz'))}}catch(e){}
 const save=()=>{try{localStorage.setItem('fitqaz',JSON.stringify(S))}catch(e){}};
 const lvl=()=>({l:3+Math.floor(S.xp/500),x:S.xp%500});
 const score=()=>1300+S.xp*2;
-const board=()=>[...DB.students.map(s=>({n:s[0],u:s[1],p:s[2]})),{n:S.name+' (вы)',u:'FITQAZ',p:score(),me:1}].sort((a,b)=>b.p-a.p);
+const board=()=>[...DB.students.map(s=>({n:s[0],u:s[1],p:s[2]})),{n:S.name+' (вы)',u:'KSTU',p:score(),me:1}].sort((a,b)=>b.p-a.p);
 const row=(s,i)=>`<div class="st ${s.me?'me':''}"><span class="rk r${i+1}">${i+1}</span><span class="av">${s.n[0]}</span><div><b>${s.n}</b><small>${s.u}</small></div><em>${s.p} 🔥</em></div>`;
 const rows=n=>{const b=board(),m=b.findIndex(s=>s.me);let h=b.slice(0,n).map(row).join('');if(m>=n)h+='<div class="sep">• • •</div>'+row(b[m],m);return h};
 function rankFx(){const m=$('.st.me');if(!m)return;const r=board().findIndex(s=>s.me)+1,p=S.rank;S.rank=r;save();
