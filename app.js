@@ -20,8 +20,12 @@ let S={xp:320,going:[],qp:{},qd:[],goals:[0],name:'Студент',timeWorked:0}
 try{S={...S,...JSON.parse(localStorage.getItem('fitqaz'))}}catch(e){}
 const save=()=>{try{localStorage.setItem('fitqaz',JSON.stringify(S))}catch(e){}};
 const lvl=()=>({l:3+Math.floor(S.xp/500),x:S.xp%500});
-const board=()=>[...DB.students.map(s=>({n:s[0],u:s[1],p:s[2]})),{n:S.name+' (вы)',u:'FITQAZ',p:1500+S.xp,me:1}].sort((a,b)=>b.p-a.p);
-const rows=n=>board().slice(0,n).map((s,i)=>`<div class="st ${s.me?'me':''}"><span class="rk r${i+1}">${i+1}</span><span class="av">${s.n[0]}</span><div><b>${s.n}</b><small>${s.u}</small></div><em>${s.p} 🔥</em></div>`).join('');
+const score=()=>1300+S.xp*2;
+const board=()=>[...DB.students.map(s=>({n:s[0],u:s[1],p:s[2]})),{n:S.name+' (вы)',u:'FITQAZ',p:score(),me:1}].sort((a,b)=>b.p-a.p);
+const row=(s,i)=>`<div class="st ${s.me?'me':''}"><span class="rk r${i+1}">${i+1}</span><span class="av">${s.n[0]}</span><div><b>${s.n}</b><small>${s.u}</small></div><em>${s.p} 🔥</em></div>`;
+const rows=n=>{const b=board(),m=b.findIndex(s=>s.me);let h=b.slice(0,n).map(row).join('');if(m>=n)h+='<div class="sep">• • •</div>'+row(b[m],m);return h};
+function rankFx(){const m=$('.st.me');if(!m)return;const r=board().findIndex(s=>s.me)+1,p=S.rank;S.rank=r;save();
+ if(p&&r<p){m.animate([{transform:`translateY(${(p-r)*Math.min(m.offsetHeight,64)}px)`,opacity:.3},{transform:'none',opacity:1}],{duration:800,easing:'ease-out'});setTimeout(()=>toast(`Вы поднялись на ${r} место! 🚀`),1900)}}
 const head=t=>`<div class="page-h"><a class="back" href="index.html">‹</a><h1>${t}</h1></div>`;
 function toast(m){const t=document.createElement('div');t.id='toast';t.textContent=m;document.body.append(t);setTimeout(()=>t.remove(),1800)}
 function addXp(n){S.xp+=n;save();toast('+'+n+' XP 🔥')}
@@ -44,7 +48,7 @@ return `<div class="card ev"><div><span class="time">${e.t}</span><b>${e.dl?'⏰
 
 progress(){const {l,x}=lvl();const done=S.going.length;
 return head('Успеваемость')+`
-<div class="stats"><div class="card"><b>${1900+S.xp}</b><small>всего баллов</small></div><div class="card"><b>${l}</b><small>уровень</small></div>
+<div class="stats"><div class="card"><b>${score()}</b><small>всего баллов</small></div><div class="card"><b>${l}</b><small>уровень</small></div>
 <div class="card"><b>${86+Math.min(done,14)}%</b><small>посещаемость</small></div><div class="card"><b>${S.qd.length}/${DB.quests.length}</b><small>квестов выполнено</small></div></div>
 <div class="card"><div class="row"><h2>До уровня ${l+1}</h2><small>${x} / 500</small></div><i class="bar"><u style="width:${x/5}%"></u></i></div>
 <div class="card"><h2>Активность за неделю</h2><div class="chart">${DB.week.map(w=>`<div>${w[1]}<u style="height:${w[1]}%"></u>${w[0]}</div>`).join('')}</div></div>
@@ -53,7 +57,7 @@ return head('Успеваемость')+`
 profile(){const G=['Пробежать 5 км без остановки','Сдать все нормативы','Войти в топ-3 рейтинга','Тренироваться 3 раза в неделю'];
 const B=[['🔥','Первый шаг',1],['🏃','Бегун',S.xp>=400],['🏆','Квестер',S.qd.length>0],['⭐','Уровень 4',S.xp>=500],['📅','Активист',S.going.length>=2],['👑','Лидер',S.xp>=1000]];
 return head('Профиль')+`
-<div class="card pf"><span class="av">${S.name[0]}</span><h2>${S.name}</h2><small>KSTU · ${1900+S.xp} баллов</small><button class="btn sm ghost" data-a="name">Изменить имя</button></div>
+<div class="card pf"><span class="av">${S.name[0]}</span><h2>${S.name}</h2><small>Университет Астана · ${score()} баллов</small><button class="btn sm ghost" data-a="name">Изменить имя</button></div>
 <div class="card"><h2>Мои цели</h2>${G.map((g,i)=>`<div class="goal ${S.goals.includes(i)?'on':''}" data-a="goal" data-id="${i}"><span>${S.goals.includes(i)?'✓':''}</span>${g}</div>`).join('')}</div>
 <div class="card"><h2 style="margin-bottom:10px">Достижения</h2><div class="badges">${B.map(b=>`<div class="bd ${b[2]?'':'off'}"><i>${b[0]}</i>${b[1]}</div>`).join('')}</div></div>
 <button class="btn ghost" data-a="reset">Сбросить прогресс</button>`},
@@ -69,7 +73,7 @@ const NAV=[['index','Главная','🏠','home'],['calendar','Календа�
 const page=document.body.dataset.page;
 function render(){$('#app').innerHTML=P[page]();
  $('#app').insertAdjacentHTML('afterend','');document.querySelector('nav')?.remove();
- document.body.insertAdjacentHTML('beforeend',`<nav>${NAV.map(n=>`<a href="${n[0]}.html" class="${n[3]===page?'on':''}"><i>${n[2]}</i>${n[1]}</a>`).join('')}</nav>`)}
+ document.body.insertAdjacentHTML('beforeend',`<nav>${NAV.map(n=>`<a href="${n[0]}.html" class="${n[3]===page?'on':''}"><i>${n[2]}</i>${n[1]}</a>`).join('')}</nav>`);rankFx()}
 
 function timer(){const m=document.createElement('div');m.className='modal';
  m.innerHTML=`<div class="sheet"><h2>Тренировка</h2><div class="time" id="tm">00:00</div><button class="btn" id="tg">Старт</button><button class="btn ghost" id="fin">Завершить и получить XP</button><button class="btn ghost" id="cl">Закрыть</button></div>`;
