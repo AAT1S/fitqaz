@@ -1,12 +1,5 @@
 const $=(s,r=document)=>r.querySelector(s);
 const DB={
- events:[
-  {id:1,d:'2026-10-19',t:'09:00',n:'Футбол',p:'Спортзал №1'},
-  {id:2,d:'2026-10-19',t:'15:30',n:'Плавание',p:'Бассейн'},
-  {id:3,d:'2026-10-21',t:'11:00',n:'Лёгкая атлетика',p:'Стадион'},
-  {id:4,d:'2026-10-22',t:'10:00',n:'Сдача нормативов: бег 100 м',p:'Стадион',dl:1},
-  {id:5,d:'2026-10-24',t:'17:00',n:'Волейбол',p:'Спортзал №2'},
-  {id:6,d:'2026-10-26',t:'12:00',n:'Дедлайн: отчёт по тренировкам',p:'Онлайн',dl:1}],
  quests:[
   {id:1,n:'Пробежать 15 км за неделю',xp:80,max:15,u:'км',step:5},
   {id:2,n:'Посетить 3 занятия',xp:60,max:3,u:'зан.',step:1},
@@ -16,7 +9,7 @@ const DB={
  week:[['Пн',40],['Вт',65],['Ср',30],['Чт',80],['Пт',55],['Сб',90],['Вс',20]],
  norms:[['Бег 100 м',82],['Подтягивания',60],['Пресс (1 мин)',75],['Прыжок в длину',68]]
 };
-let S={xp:320,going:[],qp:{},qd:[],goals:[0],name:'Студент',timeWorked:0};
+let S={xp:320,att:{},mk:{},going:[],qp:{},qd:[],goals:[0],name:'Студент',timeWorked:0};
 try{S={...S,...JSON.parse(localStorage.getItem('fitqaz'))}}catch(e){}
 const save=()=>{try{localStorage.setItem('fitqaz',JSON.stringify(S))}catch(e){}};
 const lvl=()=>({l:3+Math.floor(S.xp/500),x:S.xp%500});
@@ -30,6 +23,22 @@ const head=t=>`<div class="page-h"><a class="back" href="index.html">‹</a><h1>
 function toast(m){const t=document.createElement('div');t.id='toast';t.textContent=m;document.body.append(t);setTimeout(()=>t.remove(),1800)}
 function addXp(n){S.xp+=n;save();toast('+'+n+' XP 🔥')}
 
+const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const TODAY=iso(new Date()),START='2026-09-01',END='2026-12-25';
+const LES={2:['10:00','Футбол','Спортзал №1'],4:['15:30','Плавание','Бассейн'],6:['11:00','Лёгкая атлетика','Стадион']};
+const cal={d:new Date(new Date().getFullYear(),new Date().getMonth(),1),sel:TODAY};
+const fmt=s=>new Date(s+'T00:00:00').toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
+function dayInfo(s){if(s<START||s>END)return null;const w=new Date(s+'T00:00:00').getDay(),l=LES[w];
+ if(l){let k='n';if(s<TODAY){let h=0;for(const ch of s)h=(h*31+ch.charCodeAt(0))%97;k=(S.mk[s]||h%4)?'g':'r'}else if(s===TODAY&&S.att[s])k='g';return{k,l}}
+ return w===5&&s>=TODAY?{k:'b'}:null}
+function each(fn){for(let d=new Date(START+'T00:00:00');iso(d)<TODAY;d.setDate(d.getDate()+1)){const s=iso(d),i=dayInfo(s);if(i&&i.l)fn(s,i)}}
+function stats(){let t=0,a=0;each((s,i)=>{t++;if(i.k==='g')a++});return{t,a,p:t?Math.round(a/t*100):100}}
+function missed(){const r=[];each((s,i)=>{if(i.k==='r')r.push({s,n:i.l[1]})});return r}
+function detail(f,s){
+ if(!f)return '<small>В этот день занятий нет</small>';
+ if(f.k==='b'){const m=missed();return `<div class="ev"><div><span class="time">16:00</span><b>Отработка пропусков</b><small>Спортзал №1</small></div></div>`+(m.length?m.map(x=>`<div class="ev" style="margin-top:12px"><small>${x.n}, ${fmt(x.s)}</small><button class="btn sm" data-a="mk" data-id="${x.s}">Отработать</button></div>`).join(''):'<p class="muted" style="margin-top:10px">Пропусков нет, отрабатывать нечего 👍</p>')}
+ const st={n:'Предстоит',g:S.mk[s]?'Отработано':'Посещено',r:'Пропуск'}[f.k];
+ return `<div class="ev"><div><span class="time">${f.l[0]}</span><b>${f.l[1]}</b><small>${f.l[2]} · ${st}</small></div>${s===TODAY&&f.k==='n'?`<button class="btn sm" data-a="here" data-id="${s}">Я пришёл</button>`:''}</div>`}
 const P={
 home(){const {l,x}=lvl();return `
 <header class="top"><div><div class="logo">FIT<b>Q</b>AZ</div><p class="muted">Двигайся. Развивайся. Достигай.</p></div>
@@ -42,20 +51,25 @@ home(){const {l,x}=lvl();return `
 <a class="tile" href="quests.html"><i>🏆</i><b>Еженедельные квесты</b><small>Выполняй задания и получай награды</small></a></div>
 <section class="card"><div class="row"><h2>🏆 Топ студентов</h2><a href="rating.html">Весь рейтинг ›</a></div>${rows(5)}</section>`},
 
-calendar(){const g={};DB.events.forEach(e=>(g[e.d]=g[e.d]||[]).push(e));
-return head('Календарь')+Object.keys(g).sort().map(d=>`<div class="day">${new Date(d).toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'})}</div>`+g[d].map(e=>{const on=S.going.includes(e.id);
-return `<div class="card ev"><div><span class="time">${e.t}</span><b>${e.dl?'⏰ ':''}${e.n}</b><small>${e.p}</small></div><button class="btn sm ${on?'on':''}" data-a="go" data-id="${e.id}">${on?'Вы идёте ✓':e.dl?'Напомнить':'Записаться'}</button></div>`}).join('')).join('')},
+calendar(){const y=cal.d.getFullYear(),m=cal.d.getMonth(),off=(new Date(y,m,1).getDay()+6)%7,n=new Date(y,m+1,0).getDate();
+let c='<span></span>'.repeat(off);
+for(let i=1;i<=n;i++){const s=iso(new Date(y,m,i)),f=dayInfo(s);c+=`<button class="cd ${s===TODAY?'today':''} ${s===cal.sel?'sel':''}" data-a="day" data-id="${s}">${i}${f?`<u class="dot ${f.k}"></u>`:''}</button>`}
+const dt=new Date(cal.sel+'T00:00:00').toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});
+return head('Календарь')+`<div class="card"><div class="row"><button class="back" data-a="cm" data-id="-1">‹</button><h2 class="cap">${cal.d.toLocaleDateString('ru-RU',{month:'long',year:'numeric'})}</h2><button class="back" data-a="cm" data-id="1">›</button></div>
+<div class="cg wk">${['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(x=>`<small>${x}</small>`).join('')}</div><div class="cg">${c}</div>
+<div class="leg"><span><u class="dot n"></u>Предстоит</span><span><u class="dot g"></u>Посещено</span><span><u class="dot r"></u>Пропуск</span><span><u class="dot b"></u>Отработка</span></div></div>
+<div class="card"><div class="day" style="margin-top:0">${dt}</div>${detail(dayInfo(cal.sel),cal.sel)}</div>`},
 
-progress(){const {l,x}=lvl();const done=S.going.length;
+progress(){const {l,x}=lvl();
 return head('Успеваемость')+`
 <div class="stats"><div class="card"><b>${score()}</b><small>всего баллов</small></div><div class="card"><b>${l}</b><small>уровень</small></div>
-<div class="card"><b>${86+Math.min(done,14)}%</b><small>посещаемость</small></div><div class="card"><b>${S.qd.length}/${DB.quests.length}</b><small>квестов выполнено</small></div></div>
+<div class="card"><b>${stats().p}%</b><small>посещаемость</small></div><div class="card"><b>${S.qd.length}/${DB.quests.length}</b><small>квестов выполнено</small></div></div>
 <div class="card"><div class="row"><h2>До уровня ${l+1}</h2><small>${x} / 500</small></div><i class="bar"><u style="width:${x/5}%"></u></i></div>
 <div class="card"><h2>Активность за неделю</h2><div class="chart">${DB.week.map(w=>`<div>${w[1]}<u style="height:${w[1]}%"></u>${w[0]}</div>`).join('')}</div></div>
 <div class="card"><h2>Нормативы</h2>${DB.norms.map(n=>`<div class="nm"><div class="row"><span>${n[0]}</span><small>${n[1]}%</small></div><i class="bar"><u style="width:${n[1]}%"></u></i></div>`).join('')}</div>`},
 
 profile(){const G=['Пробежать 5 км без остановки','Сдать все нормативы','Войти в топ-3 рейтинга','Тренироваться 3 раза в неделю'];
-const B=[['🔥','Первый шаг',1],['🏃','Бегун',S.xp>=400],['🏆','Квестер',S.qd.length>0],['⭐','Уровень 4',S.xp>=500],['📅','Активист',S.going.length>=2],['👑','Лидер',S.xp>=1000]];
+const B=[['🔥','Первый шаг',1],['🏃','Бегун',S.xp>=400],['🏆','Квестер',S.qd.length>0],['⭐','Уровень 4',S.xp>=500],['📅','Активист',stats().a>=10],['👑','Лидер',S.xp>=1000]];
 return head('Профиль')+`
 <div class="card pf"><span class="av">${S.name[0]}</span><h2>${S.name}</h2><small>Университет Астана · ${score()} баллов</small><button class="btn sm ghost" data-a="name">Изменить имя</button></div>
 <div class="card"><h2>Мои цели</h2>${G.map((g,i)=>`<div class="goal ${S.goals.includes(i)?'on':''}" data-a="goal" data-id="${i}"><span>${S.goals.includes(i)?'✓':''}</span>${g}</div>`).join('')}</div>
@@ -85,6 +99,10 @@ function timer(){const m=document.createElement('div');m.className='modal';
 
 document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a,id=+b.dataset.id;
  if(a==='timer')return timer();
+ if(a==='cm')cal.d=new Date(cal.d.getFullYear(),cal.d.getMonth()+id,1);
+ if(a==='day')cal.sel=b.dataset.id;
+ if(a==='here'){S.att[b.dataset.id]='a';addXp(10)}
+ if(a==='mk'){S.mk[b.dataset.id]=cal.sel;addXp(20)}
  if(a==='go'){S.going=S.going.includes(id)?S.going.filter(x=>x!==id):[...S.going,id];toast(S.going.includes(id)?'Записано ✓':'Запись отменена')}
  if(a==='goal')S.goals=S.goals.includes(id)?S.goals.filter(x=>x!==id):[...S.goals,id];
  if(a==='q'){const q=DB.quests.find(x=>x.id===id);S.qp[id]=Math.min(q.max,(S.qp[id]||0)+q.step);
