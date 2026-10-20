@@ -89,9 +89,25 @@ students(){
  if(tv.s&&U[tv.s]){const r=U[tv.s],s=dflt(r.s),L=lvl(s.xp);
   return headB(nm(r),'tback')+`<div class="card pf"><span class="av">${nm(r)[0]}</span><h2>${nm(r)}</h2><small>${r.uni} · Группа 1</small><b style="font-size:28px">${pts(r)} 🔥</b><small>Уровень ${L.l} · ${L.x} / 500 XP</small></div>
 <p class="muted" style="margin:4px 0 10px">Задания студента — подтверждайте выполнение:</p>`+DB.quests.map(q=>qcard(q,s.qp,s.qd,1)).join('')+`<button class="btn ghost" style="width:100%;margin-top:6px" data-a="tres">Сбросить прогресс студента</button>`}
- if(tv.g)return headB('Группа '+tv.g,'tback')+`<section class="card">${tv.g===1?reals().map(r=>srow(r,1)).join(''):''}${DB.groups[tv.g].map(a=>srow(dem(a),0)).join('')}</section>${tv.g===1?'':'<p class="muted">В этой группе нет подключённых аккаунтов студентов.</p>'}`;
- return head('Студенты')+`<p class="muted" style="margin:-6px 0 12px">Выберите группу</p>`+[1,2,3,4,5].map(g=>`<button class="card gcard" data-a="grp" data-id="${g}"><div><b>Группа ${g}</b><small>${gcount(g)} студентов${g===1?' · доступ к заданиям':''}</small></div><span>›</span></button>`).join('')},
+ if(tv.g)return headB(groupNames[tv.g],'tback')+`<section class="card">${tv.g===1?reals().map(r=>srow(r,1)).join(''):''}${DB.groups[tv.g].map(a=>srow(dem(a),0)).join('')}</section>${tv.g===1?'':'<p class="muted">В этой группе нет подключённых аккаунтов студентов.</p>'}`;
+const groupNames = {
+  1: 'СИБ-25-7',
+  2: 'СИБ-25-6',
+  3: 'СБ-24-2',
+  4: 'DS-25-7',
+  5: 'СИБ-25-4'
+};
 
+return head('Студенты')+
+`<p class="muted" style="margin:-6px 0 12px">Выберите группу</p>`+
+[1,2,3,4,5].map(g=>`
+<button class="card gcard" data-a="grp" data-id="${g}">
+  <div>
+    <b>${groupNames[g]}</b>
+    <small>${gcount(g)} студентов${g===1?' · доступ к заданиям':''}</small>
+  </div>
+  <span>›</span>
+</button>`).join('')},
 calendar(){const y=cal.d.getFullYear(),m=cal.d.getMonth(),off=(new Date(y,m,1).getDay()+6)%7,n=new Date(y,m+1,0).getDate();
 let c='<span></span>'.repeat(off);
 for(let i=1;i<=n;i++){const s=iso(new Date(y,m,i)),f=dayInfo(s);c+=`<button class="cd ${s===TODAY?'today':''} ${s===cal.sel?'sel':''}" data-a="day" data-id="${s}">${i}${f?`<u class="dot ${f.k}"></u>`:''}</button>`}
