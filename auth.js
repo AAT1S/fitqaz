@@ -1,7 +1,9 @@
 /* Хранилище аккаунтов + вход/регистрация. Если в config.js указан Firebase — данные общие для всех устройств. */
 const UK='fitqaz_users',SK='fitqaz_session',DBURL=(window.FITQAZ_DB_URL||'').replace(/\/$/,'');
 const UNIS=['KSTU','Университет Астана','КазНУ','ЕНУ им. Л.Н. Гумилева','КБТУ','SATB','КазНПУ','МУИТ','Другой вуз'];
-let U={};const touched={};
+let U={};const touched={};const NET={s:DBURL?'wait':'local',m:''};
+const netText=()=>({local:'⚪ Локальный режим: данные только на этом устройстве',ok:'🟢 Онлайн: общая база',wait:'🟡 Подключение…',err:'🔴 '+NET.m})[NET.s];
+const netErr=e=>{NET.s='err';NET.m=e.message==='Failed to fetch'?'Нет связи с базой: проверьте адрес в config.js и интернет':e.message};
 const enc=k=>[...k].map(c=>/[a-z0-9_]/.test(c)?c:'-'+c.charCodeAt(0).toString(36)+'-').join('');
 const curKey=()=>localStorage.getItem(SK);
 const localISO=()=>new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
@@ -12,11 +14,13 @@ async function hash(pw,salt){
   return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
  let h=5381;for(const c of salt+pw)h=((h*33)^c.charCodeAt(0))>>>0;return 'w'+h}
 async function loadUsers(){let raw={};
- try{if(DBURL){const r=await fetch(DBURL+'/fitqaz/users.json');raw=(await r.json())||{}}else raw=JSON.parse(localStorage.getItem(UK))||{}}catch(e){}
+ try{if(DBURL){const r=await fetch(DBURL+'/fitqaz/users.json');
+  if(!r.ok)throw new Error(r.status===401||r.status===403?'Нет доступа к базе: во вкладке Rules вставьте правила и нажмите «Опубликовать»':r.status===404?'Неверный адрес базы в config.js':'Ошибка базы '+r.status);
+  raw=(await r.json())||{};NET.s='ok'}else raw=JSON.parse(localStorage.getItem(UK))||{}}catch(e){if(DBURL)netErr(e)}
  const n={};for(const[k,r]of Object.entries(raw))if(r){r.k=r.k||k;n[r.k]=r}return n}
 async function refresh(){const n=await loadUsers();for(const k in n)if(!touched[k]||Date.now()-touched[k]>4000)U[k]=n[k]}
 function putUser(k){touched[k]=Date.now();U[k].k=k;
- if(DBURL)fetch(`${DBURL}/fitqaz/users/${enc(k)}.json`,{method:'PUT',body:JSON.stringify(U[k])}).catch(()=>{});
+ if(DBURL)fetch(`${DBURL}/fitqaz/users/${enc(k)}.json`,{method:'PUT',body:JSON.stringify(U[k])}).then(r=>{if(!r.ok)netErr(new Error('Не удалось сохранить в базу (код '+r.status+')'))}).catch(netErr);
  else localStorage.setItem(UK,JSON.stringify(U))}
 const DEMO=[
  {k:'student',name:'student',fio:'Алимжан',role:'student',uni:'KSTU',pw:'student123',s:{xp:0}},
@@ -48,7 +52,7 @@ if(document.body.dataset.page==='auth')READY.then(()=>{
    <button class="btn sm ghost" data-fill="student">🎓 Студент: student / student123</button>
    <button class="btn sm ghost" data-fill="teacher">👩‍🏫 Преподаватель: teacher / teacher123</button></div></div>
    <button class="lnk" data-m="reg">Нет аккаунта? Регистрация</button><button class="lnk" data-m="choose">‹ Назад</button>`};
- const draw=()=>{app.innerHTML=V[mode]();const n=document.getElementById('n');if(n)n.focus()};
+ const draw=()=>{app.innerHTML=V[mode]()+`<div id="net" class="net ${NET.s}">${netText()}</div>`;const n=document.getElementById('n');if(n)n.focus()};
  const v=id=>document.getElementById(id).value,fail=m=>document.getElementById('er').textContent=m;
  app.addEventListener('click',e=>{const b=e.target.closest('[data-m]'),f=e.target.closest('[data-fill]');
   if(b){mode=b.dataset.m;draw()}
