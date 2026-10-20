@@ -130,10 +130,10 @@ const NAV=[['index','Главная','🏠','home'],['calendar','Календа�
 const NAVT=[['index','Главная','🏠','home'],['calendar','Календарь','📅','calendar'],['students','Студенты','🎓','students'],['profile','Профиль','👤','profile']];
 let lastSig='';const sig=()=>JSON.stringify(U);
 function render(){const fn=(T&&P['T'+page])||P[page];
- $('#app').innerHTML=fn()+`<nav>${(T?NAVT:NAV).map(n=>`<a href="${n[0]}.html" class="${n[3]===page?'on':''}"><i>${n[2]}</i>${n[1]}</a>`).join('')}</nav>`;
+ $('#app').innerHTML=fn()+`<div id="net" class="net ${NET.s}">${netText()}</div><nav>${(T?NAVT:NAV).map(n=>`<a href="${n[0]}.html" class="${n[3]===page?'on':''}"><i>${n[2]}</i>${n[1]}</a>`).join('')}</nav>`;
  rankFx();lastSig=sig()}
 
-async function sync(){await refresh();const m=U[KEY];if(!m||document.querySelector('.modal')||sig()===lastSig)return;
+async function sync(){await refresh();const nb=$('#net');if(nb){nb.className='net '+NET.s;nb.textContent=netText()}const m=U[KEY];if(!m||document.querySelector('.modal')||sig()===lastSig)return;
  const old=S.xp;USER=m;S=dflt(m.s);
  if(!T&&S.xp>old)toast('+'+(S.xp-old)+' XP — подтвердил преподаватель 🔥');
  render()}
