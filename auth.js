@@ -2,7 +2,7 @@
 if(typeof window.FITQAZ_DB_URL==='undefined'){try{const x=new XMLHttpRequest();x.open('GET','config.js?'+Date.now(),false);x.send();if(x.status===200)(0,eval)(x.responseText)}catch(e){}}
 /* Хранилище аккаунтов + вход/регистрация. Если в config.js указан Firebase — данные общие для всех устройств. */
 const UK='fitqaz_users',SK='fitqaz_session',DBURL=(window.FITQAZ_DB_URL||'').replace(/\/$/,'');
-const UNIS=['СИБ-25-7','СБ-25-4','СИБ-25-4','СИБ-25-3','SATB','DS-25-3','СБ-25-1'];
+const UNIS=['СИБ-25-7','СБ-25-4','СИБ-25-4','СИБ-25-3','SATB','DS-25-3','СБ-25-1','Преподователь'];
 let U={};const touched={};const NET={s:DBURL?'wait':'local',m:''};
 const netText=()=>({local:'⚪ Локальный режим: данные только на этом устройстве',ok:'🟢 Онлайн: общая база',wait:'🟡 Подключение…',err:'🔴 '+NET.m})[NET.s];
 const netErr=e=>{NET.s='err';NET.m=e.message==='Failed to fetch'?'Нет связи с базой: проверьте адрес в config.js и интернет':e.message};
@@ -26,7 +26,7 @@ function putUser(k){touched[k]=Date.now();U[k].k=k;
  else localStorage.setItem(UK,JSON.stringify(U))}
 const DEMO=[
  {k:'student',name:'student',fio:'Алимжан',role:'student',uni:'СИБ-25-7',pw:'student123',s:{xp:0}},
- {k:'teacher',name:'teacher',fio:'Ерлан',role:'teacher',uni:'KSTU',pw:'teacher123'}];
+ {k:'teacher',name:'teacher',fio:'Ерлан',role:'teacher',uni:'Преподователь',pw:'teacher123'}];
 async function seed(){for(const d of DEMO){
  if(!U[d.k]){const{pw,...r}=d,salt=newSalt();U[d.k]={...r,salt,hash:await hash(pw,salt),v:2,created:localISO()};putUser(d.k)}
  else if(U[d.k].fio!==d.fio){U[d.k].fio=d.fio;putUser(d.k)}}}
