@@ -19,9 +19,11 @@ function putUser(k){touched[k]=Date.now();U[k].k=k;
  if(DBURL)fetch(`${DBURL}/fitqaz/users/${enc(k)}.json`,{method:'PUT',body:JSON.stringify(U[k])}).catch(()=>{});
  else localStorage.setItem(UK,JSON.stringify(U))}
 const DEMO=[
- {k:'student',name:'student',fio:'Ержан С.',role:'student',uni:'KSTU',pw:'student123',s:{xp:0}},
- {k:'teacher',name:'teacher',fio:'Алия Серикова',role:'teacher',uni:'KSTU',pw:'teacher123'}];
-async function seed(){for(const d of DEMO)if(!U[d.k]){const{pw,...r}=d,salt=newSalt();U[d.k]={...r,salt,hash:await hash(pw,salt),v:2,created:localISO()};putUser(d.k)}}
+ {k:'student',name:'student',fio:'Алимжан',role:'student',uni:'KSTU',pw:'student123',s:{xp:0}},
+ {k:'teacher',name:'teacher',fio:'Ерлан',role:'teacher',uni:'KSTU',pw:'teacher123'}];
+async function seed(){for(const d of DEMO){
+ if(!U[d.k]){const{pw,...r}=d,salt=newSalt();U[d.k]={...r,salt,hash:await hash(pw,salt),v:2,created:localISO()};putUser(d.k)}
+ else if(U[d.k].fio!==d.fio){U[d.k].fio=d.fio;putUser(d.k)}}}
 const READY=(async()=>{U=await loadUsers();await seed()})();
 
 if(document.body.dataset.page==='auth')READY.then(()=>{
