@@ -25,7 +25,9 @@ let S=dflt(USER.s);
 const save=()=>{USER.s=S;U[KEY]=USER;putUser(KEY)};
 const lvl=(x=S.xp)=>({l:1+Math.floor(x/500),x:x%500});
 const scoreOf=x=>(x||0),score=()=>scoreOf(S.xp);
-const reals=()=>Object.values(U).filter(r=>r.role==='student');
+const reals=()=>Object.entries(U)
+  .filter(([k,r])=>r.role==='student')
+  .map(([k,r])=>({...r,k:r.k||k}));
 const board=()=>[...DB.students.map(s=>({n:s[0],u:s[1],p:s[2]})),...reals().filter(r=>r.k!==KEY).map(r=>({n:nm(r),u:r.uni,p:scoreOf(r.s&&r.s.xp)})),...(T?[]:[{n:nm(USER)+' (вы)',u:USER.uni,p:score(),me:1}])].sort((a,b)=>b.p-a.p);
 const row=(s,i)=>`<div class="st ${s.me?'me':''}"><span class="rk r${i+1}">${i+1}</span><span class="av">${s.n[0]}</span><div><b>${s.n}</b><small>${s.u}</small></div><em>${s.p} 🔥</em></div>`;
 const rows=n=>{const b=board(),m=b.findIndex(s=>s.me);let h=b.slice(0,n).map(row).join('');if(m>=n)h+='<div class="sep">• • •</div>'+row(b[m],m);return h};
@@ -63,7 +65,13 @@ const srow=(r,a)=>{const tg=a?'button':'div';return `<${tg} class="sr" ${a?`data
 const gcount=g=>(g===1?reals().length:0)+DB.groups[g].length;
 const tile=(h,i,b,s)=>`<a class="tile" href="${h}"><i>${i}</i><b>${b}</b><small>${s}</small></a>`;
 const calTile=tile('calendar.html','📅','Спортивный календарь','Твои тренировки, события и дедлайны');
-
+const groupNames = {
+  1: 'СИБ-25-7',
+  2: 'СИБ-25-6',
+  3: 'СБ-24-2',
+  4: 'DS-25-7',
+  5: 'СИБ-25-4'
+};
 const P={
 home(){const L=lvl();return `
 <header class="top"><div><div class="logo">FIT<b>Q</b>AZ</div><p class="muted">Двигайся. Развивайся. Достигай.</p></div>
@@ -86,17 +94,21 @@ ${tile('profile.html','👤','Профиль','Данные и смена пар
 <section class="card"><div class="row"><h2>СИБ-25-7</h2><a href="students.html">Открыть ›</a></div>${reals().map(r=>srow(r,0)).join('')||'<small>Студентов пока нет</small>'}</section>`},
 
 students(){
- const groupNames = {
-  1: 'СИБ-25-7',
-  2: 'СИБ-25-6',
-  3: 'СБ-24-2',
-  4: 'DS-25-7',
-  5: 'СИБ-25-4'
-};
  if(tv.s&&U[tv.s]){const r=U[tv.s],s=dflt(r.s),L=lvl(s.xp);
   return headB(nm(r),'tback')+`<div class="card pf"><span class="av">${nm(r)[0]}</span><h2>${nm(r)}</h2><small>${r.uni} · Группа 1</small><b style="font-size:28px">${pts(r)} 🔥</b><small>Уровень ${L.l} · ${L.x} / 500 XP</small></div>
 <p class="muted" style="margin:4px 0 10px">Задания студента — подтверждайте выполнение:</p>`+DB.quests.map(q=>qcard(q,s.qp,s.qd,1)).join('')+`<button class="btn ghost" style="width:100%;margin-top:6px" data-a="tres">Сбросить прогресс студента</button>`}
- if(tv.g)return headB(groupNames[tv.g],'tback')+`<section class="card">${tv.g===1?reals().map(r=>srow(r,1)).join(''):''}${DB.groups[tv.g].map(a=>srow(dem(a),0)).join('')}</section>${tv.g===1?'':'<p class="muted">В этой группе нет подключённых аккаунтов студентов.</p>'}`;
+ if(tv.g){
+  const g = tv.g;
+  const demoStudents = DB.groups[g] || [];
+  const realStudents = g === 1 ? reals() : [];
+
+  return headB(groupNames[g] || ('Группа ' + g),'tback')
+    + `<section class="card">
+        ${realStudents.map(r=>srow(r,1)).join('')}
+        ${demoStudents.map(a=>srow(dem(a),0)).join('')}
+      </section>`
+    + (g===1 ? '' : '<p class="muted">В этой группе нет подключённых аккаунтов студентов.</p>');
+}+`<section class="card">${tv.g===1?reals().map(r=>srow(r,1)).join(''):''}${DB.groups[tv.g].map(a=>srow(dem(a),0)).join('')}</section>${tv.g===1?'':'<p class="muted">В этой группе нет подключённых аккаунтов студентов.</p>'}`;
 
 return head('Студенты')+
 `<p class="muted" style="margin:-6px 0 12px">Выберите группу</p>`+
