@@ -45,7 +45,7 @@ function dayInfo(s){if(s<START||s>END)return null;const w=new Date(s+'T00:00:00'
  if(l){let k='n';if(T)k=s<TODAY?'g':'n';else if(s<TODAY){let h=0;for(const ch of s)h=(h*31+ch.charCodeAt(0))%97;k=(S.mk[s]||h%4)?'g':'r'}else if(s===TODAY&&S.att[s])k='g';return{k,l}}
  return !T&&w===5&&s>=TODAY?{k:'b'}:null}
 function each(fn){for(let d=new Date(START+'T00:00:00');iso(d)<TODAY;d.setDate(d.getDate()+1)){const s=iso(d),i=dayInfo(s);if(i&&i.l)fn(s,i)}}
-function stats(){let t=0,a=0;each((s,i)=>{t++;if(i.k==='g')a++});return{t,a,p:t?Math.round(a/t*100):0}}
+function stats(){let t=0,a=0;each((s,i)=>{t++;if(i.k==='g')a++});return{t,a,p:t?Math.round(a/t*10):0}}
 function missed(){const r=[];each((s,i)=>{if(i.k==='r')r.push({s,n:i.l[1]})});return r}
 function detail(f,s){
  if(!f)return '<small>В этот день занятий нет</small>';
