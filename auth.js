@@ -3,6 +3,7 @@ const UK='fitqaz_users',SK='fitqaz_session';
 const UNIS=['KSTU','Университет Астана','КазНУ','ЕНУ им. Л.Н. Гумилева','КБТУ','SATB','КазНПУ','МУИТ','Другой вуз'];
 const getU=()=>{try{return JSON.parse(localStorage.getItem(UK))||{}}catch(e){return{}}};
 const setU=u=>localStorage.setItem(UK,JSON.stringify(u));
+const localISO=()=>new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
 const curKey=()=>localStorage.getItem(SK);
 const newSalt=()=>[...crypto.getRandomValues(new Uint8Array(12))].map(x=>x.toString(16).padStart(2,'0')).join('');
 async function hash(pw,salt){
@@ -40,7 +41,7 @@ if(document.body.dataset.page==='auth'){
    if(u[k])return fail('Такое имя уже занято — выберите другое или войдите');
    if(pw.length<6)return fail('Пароль: минимум 6 символов');
    if(pw!==v('p2'))return fail('Пароли не совпадают');
-   const salt=newSalt();u[k]={name,uni:v('u'),salt,hash:await hash(pw,salt),s:{xp:0}};setU(u);
+   const salt=newSalt();u[k]={name,uni:v('u'),salt,hash:await hash(pw,salt),s:{xp:0},v:2,created:localISO()};setU(u);
   }else{
    const r=u[k];if(!r||await hash(pw,r.salt)!==r.hash)return fail('Неверное имя или пароль');
   }
