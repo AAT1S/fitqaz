@@ -60,3 +60,10 @@ nav a{flex:1;text-align:center;font-size:12px;color:var(--mu);display:grid;gap:2
 .dot.n{background:#8a8a93}.dot.g{background:#2ecc71}.dot.r{background:var(--red)}.dot.b{background:#3b82f6}
 .leg{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;font-size:12px;color:var(--mu)}.leg span{display:flex;align-items:center;gap:6px}
 .cap{text-transform:capitalize}
+input,select{width:100%;background:#0d0d10;border:1px solid var(--line);border-radius:10px;padding:13px 14px;color:#fff;font:16px inherit;outline:0}
+input:focus,select:focus{border-color:var(--red)}
+.err{color:#ff6b73;font-size:14px;min-height:18px}
+.stack{display:grid;gap:10px}.stack .btn{justify-self:stretch}
+.auth{display:grid;gap:14px;align-content:center;min-height:100vh}.auth form{display:grid;gap:12px}
+.btn.big{padding:16px;font-size:16px;justify-self:stretch;text-align:center}
+.lnk{background:none;border:0;color:var(--mu);font:14px inherit;cursor:pointer;padding:6px}
