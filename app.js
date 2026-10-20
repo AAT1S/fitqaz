@@ -9,12 +9,14 @@ const DB={
  week:[['Пн',40],['Вт',65],['Ср',30],['Чт',80],['Пт',55],['Сб',90],['Вс',20]],
  norms:[['Бег 100 м',82],['Подтягивания',60],['Пресс (1 мин)',75],['Прыжок в длину',68]]
 };
-let S={xp:320,att:{},mk:{},going:[],qp:{},qd:[],goals:[0],name:'Студент',timeWorked:0};
-try{S={...S,...JSON.parse(localStorage.getItem('fitqaz'))}}catch(e){}
-const save=()=>{try{localStorage.setItem('fitqaz',JSON.stringify(S))}catch(e){}};
-const lvl=()=>({l:3+Math.floor(S.xp/500),x:S.xp%500});
-const score=()=>1300+S.xp*2;
-const board=()=>[...DB.students.map(s=>({n:s[0],u:s[1],p:s[2]})),{n:S.name+' (вы)',u:'KSTU',p:score(),me:1}].sort((a,b)=>b.p-a.p);
+const KEY=curKey(),USER=getU()[KEY],AUTHED=!!USER;
+if(!AUTHED)location.replace('auth.html');
+let S={xp:0,att:{},mk:{},going:[],qp:{},qd:[],goals:[0],name:'',timeWorked:0,...(USER?USER.s:{})};
+S.name=USER?USER.name:'';
+const save=()=>{const u=getU();if(u[KEY]){u[KEY].s=S;setU(u)}};
+const lvl=()=>({l:1+Math.floor(S.xp/500),x:S.xp%500});
+const scoreOf=x=>1500+(x||0)*3,score=()=>scoreOf(S.xp);
+const board=()=>[...DB.students.map(s=>({n:s[0],u:s[1],p:s[2]})),...Object.entries(getU()).filter(e=>e[0]!==KEY).map(e=>({n:e[1].name,u:e[1].uni,p:scoreOf(e[1].s&&e[1].s.xp)})),{n:S.name+' (вы)',u:USER?USER.uni:'',p:score(),me:1}].sort((a,b)=>b.p-a.p);
 const row=(s,i)=>`<div class="st ${s.me?'me':''}"><span class="rk r${i+1}">${i+1}</span><span class="av">${s.n[0]}</span><div><b>${s.n}</b><small>${s.u}</small></div><em>${s.p} 🔥</em></div>`;
 const rows=n=>{const b=board(),m=b.findIndex(s=>s.me);let h=b.slice(0,n).map(row).join('');if(m>=n)h+='<div class="sep">• • •</div>'+row(b[m],m);return h};
 function rankFx(){const m=$('.st.me');if(!m)return;const r=board().findIndex(s=>s.me)+1,p=S.rank;S.rank=r;save();
@@ -69,12 +71,12 @@ return head('Успеваемость')+`
 <div class="card"><h2>Нормативы</h2>${DB.norms.map(n=>`<div class="nm"><div class="row"><span>${n[0]}</span><small>${n[1]}%</small></div><i class="bar"><u style="width:${n[1]}%"></u></i></div>`).join('')}</div>`},
 
 profile(){const G=['Пробежать 5 км без остановки','Сдать все нормативы','Войти в топ-3 рейтинга','Тренироваться 3 раза в неделю'];
-const B=[['🔥','Первый шаг',1],['🏃','Бегун',S.xp>=400],['🏆','Квестер',S.qd.length>0],['⭐','Уровень 4',S.xp>=500],['📅','Активист',stats().a>=10],['👑','Лидер',S.xp>=1000]];
+const B=[['🔥','Первый шаг',1],['🏃','Бегун',S.xp>=400],['🏆','Квестер',S.qd.length>0],['⭐','Уровень 2',S.xp>=500],['📅','Активист',stats().a>=10],['👑','Лидер',S.xp>=1000]];
 return head('Профиль')+`
-<div class="card pf"><span class="av">${S.name[0]}</span><h2>${S.name}</h2><small>KSTU · ${score()} баллов</small><button class="btn sm ghost" data-a="name">Изменить имя</button></div>
+<div class="card pf"><span class="av">${S.name[0]}</span><h2>${S.name}</h2><small>${USER.uni} · ${score()} баллов</small></div>
 <div class="card"><h2>Мои цели</h2>${G.map((g,i)=>`<div class="goal ${S.goals.includes(i)?'on':''}" data-a="goal" data-id="${i}"><span>${S.goals.includes(i)?'✓':''}</span>${g}</div>`).join('')}</div>
 <div class="card"><h2 style="margin-bottom:10px">Достижения</h2><div class="badges">${B.map(b=>`<div class="bd ${b[2]?'':'off'}"><i>${b[0]}</i>${b[1]}</div>`).join('')}</div></div>
-<button class="btn ghost" data-a="reset">Сбросить прогресс</button>`},
+<div class="stack"><button class="btn" data-a="pwd">🔑 Сменить пароль</button><button class="btn ghost" data-a="reset">Сбросить прогресс</button><button class="btn ghost" data-a="logout">Выйти из аккаунта</button></div>`},
 
 quests(){return head('Квесты')+`<p class="muted" style="margin:-6px 0 12px">Обновляются каждый понедельник</p>`+DB.quests.map(q=>{const c=S.qp[q.id]||0,d=S.qd.includes(q.id);
 return `<div class="card"><div class="row"><b>${q.n}</b><small>+${q.xp} XP</small></div><i class="bar"><u style="width:${c/q.max*100}%"></u></i>
@@ -97,6 +99,17 @@ function timer(){const m=document.createElement('div');m.className='modal';
  $('#cl',m).onclick=close;
  $('#fin',m).onclick=()=>{close();if(t<5)return toast('Слишком короткая тренировка');addXp(Math.max(10,Math.floor(t/60)*10));render()}}
 
+function pwdModal(){const m=document.createElement('div');m.className='modal';
+ m.innerHTML=`<form class="sheet" style="text-align:left"><h2>Смена пароля</h2><input id="p0" type="password" placeholder="Текущий пароль" autocomplete="current-password" required><input id="p1" type="password" placeholder="Новый пароль (от 6 символов)" autocomplete="new-password" required><input id="p2" type="password" placeholder="Повторите новый пароль" autocomplete="new-password" required><div class="err" id="er"></div><button class="btn">Сохранить</button><button type="button" class="btn ghost" id="cl">Отмена</button></form>`;
+ document.body.append(m);const v=i=>$('#'+i,m).value,er=t=>$('#er',m).textContent=t;
+ $('#cl',m).onclick=()=>m.remove();
+ $('form',m).onsubmit=async e=>{e.preventDefault();const u=getU(),r=u[KEY];
+  if(await hash(v('p0'),r.salt)!==r.hash)return er('Текущий пароль неверный');
+  if(v('p1').length<6)return er('Новый пароль: минимум 6 символов');
+  if(v('p1')!==v('p2'))return er('Пароли не совпадают');
+  if(v('p1')===v('p0'))return er('Новый пароль совпадает со старым');
+  r.salt=newSalt();r.hash=await hash(v('p1'),r.salt);setU(u);m.remove();toast('Пароль изменён ✓')}}
+
 document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a,id=+b.dataset.id;
  if(a==='timer')return timer();
  if(a==='cm')cal.d=new Date(cal.d.getFullYear(),cal.d.getMonth()+id,1);
@@ -107,7 +120,8 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b
  if(a==='goal')S.goals=S.goals.includes(id)?S.goals.filter(x=>x!==id):[...S.goals,id];
  if(a==='q'){const q=DB.quests.find(x=>x.id===id);S.qp[id]=Math.min(q.max,(S.qp[id]||0)+q.step);
   if(S.qp[id]>=q.max){S.qd.push(id);addXp(q.xp)}}
- if(a==='name'){const n=prompt('Ваше имя:',S.name);if(n&&n.trim())S.name=n.trim().slice(0,20)}
- if(a==='reset'&&confirm('Сбросить весь прогресс?')){localStorage.removeItem('fitqaz');location.reload();return}
+ if(a==='reset'&&confirm('Сбросить весь прогресс?')){const u=getU();u[KEY].s={xp:0};setU(u);location.reload();return}
+ if(a==='logout'){localStorage.removeItem(SK);location.replace('auth.html');return}
+ if(a==='pwd')return pwdModal();
  save();render()});
-render();
+if(AUTHED)render();
