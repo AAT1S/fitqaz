@@ -24,7 +24,7 @@ const dflt=s=>{const o={xp:0,goals:[],qd:[],...(s||{})};o.qp={...o.qp};o.att={..
 let S=dflt(USER.s);
 const save=()=>{USER.s=S;U[KEY]=USER;putUser(KEY)};
 const lvl=(x=S.xp)=>({l:1+Math.floor(x/500),x:x%500});
-const scoreOf=x=>(x||0)*10,score=()=>scoreOf(S.xp);
+const scoreOf=x=>(x||0),score=()=>scoreOf(S.xp);
 const reals=()=>Object.values(U).filter(r=>r.role==='student');
 const board=()=>[...DB.students.map(s=>({n:s[0],u:s[1],p:s[2]})),...reals().filter(r=>r.k!==KEY).map(r=>({n:nm(r),u:r.uni,p:scoreOf(r.s&&r.s.xp)})),...(T?[]:[{n:nm(USER)+' (вы)',u:USER.uni,p:score(),me:1}])].sort((a,b)=>b.p-a.p);
 const row=(s,i)=>`<div class="st ${s.me?'me':''}"><span class="rk r${i+1}">${i+1}</span><span class="av">${s.n[0]}</span><div><b>${s.n}</b><small>${s.u}</small></div><em>${s.p} 🔥</em></div>`;
