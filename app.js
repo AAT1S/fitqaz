@@ -6,16 +6,17 @@ const DB={
   {id:3,n:'100 приседаний',xp:40,max:100,u:'',step:25},
   {id:4,n:'Пройти 50 000 шагов',xp:70,max:50,u:'тыс.',step:10}],
  students:[['Асылхан Б.','KSTU',2480],['Нурлан К.','КазНУ',2360],['Айгерим С.','ЕНУ им. Л.Н. Гумилева',2290],['Данияр М.','КБТУ',2210],['Аружан Т.','SATB',2180],['Тимур А.','КазНПУ',2050],['Мадина Е.','МУИТ',1990]],
- week:[['Пн',40],['Вт',65],['Ср',30],['Чт',80],['Пт',55],['Сб',90],['Вс',20]],
- norms:[['Бег 100 м',82],['Подтягивания',60],['Пресс (1 мин)',75],['Прыжок в длину',68]]
+ norms:[['Бег 100 м',0],['Подтягивания',0],['Пресс (1 мин)',0],['Прыжок в длину',0]]
 };
-const KEY=curKey(),USER=getU()[KEY],AUTHED=!!USER;
+const KEY=curKey();let USER=getU()[KEY];const AUTHED=!!USER;
+if(AUTHED&&USER.v!==2){const u=getU();u[KEY]={...USER,s:{xp:0},v:2,created:localISO()};setU(u);USER=u[KEY]}
+const CREATED=USER?USER.created:'9999';
 if(!AUTHED)location.replace('auth.html');
-let S={xp:0,att:{},mk:{},going:[],qp:{},qd:[],goals:[0],name:'',timeWorked:0,...(USER?USER.s:{})};
+let S={xp:0,att:{},mk:{},going:[],qp:{},qd:[],goals:[],name:'',timeWorked:0,...(USER?USER.s:{})};
 S.name=USER?USER.name:'';
 const save=()=>{const u=getU();if(u[KEY]){u[KEY].s=S;setU(u)}};
 const lvl=()=>({l:1+Math.floor(S.xp/500),x:S.xp%500});
-const scoreOf=x=>1500+(x||0)*3,score=()=>scoreOf(S.xp);
+const scoreOf=x=>(x||0)*10,score=()=>scoreOf(S.xp);
 const board=()=>[...DB.students.map(s=>({n:s[0],u:s[1],p:s[2]})),...Object.entries(getU()).filter(e=>e[0]!==KEY).map(e=>({n:e[1].name,u:e[1].uni,p:scoreOf(e[1].s&&e[1].s.xp)})),{n:S.name+' (вы)',u:USER?USER.uni:'',p:score(),me:1}].sort((a,b)=>b.p-a.p);
 const row=(s,i)=>`<div class="st ${s.me?'me':''}"><span class="rk r${i+1}">${i+1}</span><span class="av">${s.n[0]}</span><div><b>${s.n}</b><small>${s.u}</small></div><em>${s.p} 🔥</em></div>`;
 const rows=n=>{const b=board(),m=b.findIndex(s=>s.me);let h=b.slice(0,n).map(row).join('');if(m>=n)h+='<div class="sep">• • •</div>'+row(b[m],m);return h};
@@ -23,7 +24,7 @@ function rankFx(){const m=$('.st.me');if(!m)return;const r=board().findIndex(s=>
  if(p&&r<p){m.animate([{transform:`translateY(${(p-r)*Math.min(m.offsetHeight,64)}px)`,opacity:.3},{transform:'none',opacity:1}],{duration:800,easing:'ease-out'});setTimeout(()=>toast(`Вы поднялись на ${r} место! 🚀`),1900)}}
 const head=t=>`<div class="page-h"><a class="back" href="index.html">‹</a><h1>${t}</h1></div>`;
 function toast(m){const t=document.createElement('div');t.id='toast';t.textContent=m;document.body.append(t);setTimeout(()=>t.remove(),1800)}
-function addXp(n){S.xp+=n;save();toast('+'+n+' XP 🔥')}
+function addXp(n){S.xp+=n;S.log=S.log||{};S.log[TODAY]=(S.log[TODAY]||0)+n;save();toast('+'+n+' XP 🔥')}
 
 const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const TODAY=iso(new Date()),START='2026-09-01',END='2026-12-25';
@@ -31,16 +32,17 @@ const LES={2:['10:00','Футбол','Спортзал №1'],4:['15:30','Пла
 const cal={d:new Date(new Date().getFullYear(),new Date().getMonth(),1),sel:TODAY};
 const fmt=s=>new Date(s+'T00:00:00').toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
 function dayInfo(s){if(s<START||s>END)return null;const w=new Date(s+'T00:00:00').getDay(),l=LES[w];
- if(l){let k='n';if(s<TODAY){let h=0;for(const ch of s)h=(h*31+ch.charCodeAt(0))%97;k=(S.mk[s]||h%4)?'g':'r'}else if(s===TODAY&&S.att[s])k='g';return{k,l}}
+ if(l){if(s<CREATED)return null;let k='n';if(s<TODAY)k=(S.att[s]||S.mk[s])?'g':'r';else if(s===TODAY&&S.att[s])k='g';return{k,l}}
  return w===5&&s>=TODAY?{k:'b'}:null}
 function each(fn){for(let d=new Date(START+'T00:00:00');iso(d)<TODAY;d.setDate(d.getDate()+1)){const s=iso(d),i=dayInfo(s);if(i&&i.l)fn(s,i)}}
-function stats(){let t=0,a=0;each((s,i)=>{t++;if(i.k==='g')a++});return{t,a,p:t?Math.round(a/t*100):100}}
+function stats(){let t=0,a=0;each((s,i)=>{t++;if(i.k==='g')a++});return{t,a,p:t?Math.round(a/t*100):0}}
 function missed(){const r=[];each((s,i)=>{if(i.k==='r')r.push({s,n:i.l[1]})});return r}
 function detail(f,s){
  if(!f)return '<small>В этот день занятий нет</small>';
  if(f.k==='b'){const m=missed();return `<div class="ev"><div><span class="time">16:00</span><b>Отработка пропусков</b><small>Спортзал №1</small></div></div>`+(m.length?m.map(x=>`<div class="ev" style="margin-top:12px"><small>${x.n}, ${fmt(x.s)}</small><button class="btn sm" data-a="mk" data-id="${x.s}">Отработать</button></div>`).join(''):'<p class="muted" style="margin-top:10px">Пропусков нет, отрабатывать нечего 👍</p>')}
  const st={n:'Предстоит',g:S.mk[s]?'Отработано':'Посещено',r:'Пропуск'}[f.k];
  return `<div class="ev"><div><span class="time">${f.l[0]}</span><b>${f.l[1]}</b><small>${f.l[2]} · ${st}</small></div>${s===TODAY&&f.k==='n'?`<button class="btn sm" data-a="here" data-id="${s}">Я пришёл</button>`:''}</div>`}
+function weekData(){const r=[];for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);r.push([['Вс','Пн','Вт','Ср','Чт','Пт','Сб'][d.getDay()],(S.log||{})[iso(d)]||0])}return r}
 const P={
 home(){const {l,x}=lvl();return `
 <header class="top"><div><div class="logo">FIT<b>Q</b>AZ</div><p class="muted">Двигайся. Развивайся. Достигай.</p></div>
@@ -67,11 +69,11 @@ return head('Успеваемость')+`
 <div class="stats"><div class="card"><b>${score()}</b><small>всего баллов</small></div><div class="card"><b>${l}</b><small>уровень</small></div>
 <div class="card"><b>${stats().p}%</b><small>посещаемость</small></div><div class="card"><b>${S.qd.length}/${DB.quests.length}</b><small>квестов выполнено</small></div></div>
 <div class="card"><div class="row"><h2>До уровня ${l+1}</h2><small>${x} / 500</small></div><i class="bar"><u style="width:${x/5}%"></u></i></div>
-<div class="card"><h2>Активность за неделю</h2><div class="chart">${DB.week.map(w=>`<div>${w[1]}<u style="height:${w[1]}%"></u>${w[0]}</div>`).join('')}</div></div>
-<div class="card"><h2>Нормативы</h2>${DB.norms.map(n=>`<div class="nm"><div class="row"><span>${n[0]}</span><small>${n[1]}%</small></div><i class="bar"><u style="width:${n[1]}%"></u></i></div>`).join('')}</div>`},
+<div class="card"><h2>Активность за неделю (XP)</h2><div class="chart">${(()=>{const w=weekData(),mx=Math.max(1,...w.map(x=>x[1]));return w.map(x=>`<div>${x[1]}<u style="height:${x[1]/mx*100}%"></u>${x[0]}</div>`).join('')})()}</div></div>
+<div class="card"><h2>Нормативы</h2><small>Результаты появятся после сдачи нормативов</small>${DB.norms.map(n=>`<div class="nm"><div class="row"><span>${n[0]}</span><small>${n[1]}%</small></div><i class="bar"><u style="width:${n[1]}%"></u></i></div>`).join('')}</div>`},
 
 profile(){const G=['Пробежать 5 км без остановки','Сдать все нормативы','Войти в топ-3 рейтинга','Тренироваться 3 раза в неделю'];
-const B=[['🔥','Первый шаг',1],['🏃','Бегун',S.xp>=400],['🏆','Квестер',S.qd.length>0],['⭐','Уровень 2',S.xp>=500],['📅','Активист',stats().a>=10],['👑','Лидер',S.xp>=1000]];
+const B=[['🔥','Первый шаг',S.xp>0],['🏃','Бегун',S.xp>=400],['🏆','Квестер',S.qd.length>0],['⭐','Уровень 2',S.xp>=500],['📅','Активист',stats().a>=10],['👑','Лидер',S.xp>=1000]];
 return head('Профиль')+`
 <div class="card pf"><span class="av">${S.name[0]}</span><h2>${S.name}</h2><small>${USER.uni} · ${score()} баллов</small></div>
 <div class="card"><h2>Мои цели</h2>${G.map((g,i)=>`<div class="goal ${S.goals.includes(i)?'on':''}" data-a="goal" data-id="${i}"><span>${S.goals.includes(i)?'✓':''}</span>${g}</div>`).join('')}</div>
