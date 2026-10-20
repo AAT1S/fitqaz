@@ -24,7 +24,7 @@ const dflt=s=>{const o={xp:0,goals:[],qd:[],...(s||{})};o.qp={...o.qp};o.att={..
 let S=dflt(USER.s);
 const save=()=>{USER.s=S;U[KEY]=USER;putUser(KEY)};
 const lvl=(x=S.xp)=>({l:1+Math.floor(x/500),x:x%500});
-const scoreOf=x=>(x||0)*10,score=()=>scoreOf(S.xp);
+const scoreOf=x=>(x||0)*1,score=()=>scoreOf(S.xp);
 const reals=()=>Object.values(U).filter(r=>r.role==='student');
 const board=()=>[...DB.students.map(s=>({n:s[0],u:s[1],p:s[2]})),...reals().filter(r=>r.k!==KEY).map(r=>({n:nm(r),u:r.uni,p:scoreOf(r.s&&r.s.xp)})),...(T?[]:[{n:nm(USER)+' (вы)',u:USER.uni,p:score(),me:1}])].sort((a,b)=>b.p-a.p);
 const row=(s,i)=>`<div class="st ${s.me?'me':''}"><span class="rk r${i+1}">${i+1}</span><span class="av">${s.n[0]}</span><div><b>${s.n}</b><small>${s.u}</small></div><em>${s.p} 🔥</em></div>`;
@@ -45,7 +45,7 @@ function dayInfo(s){if(s<START||s>END)return null;const w=new Date(s+'T00:00:00'
  if(l){let k='n';if(T)k=s<TODAY?'g':'n';else if(s<TODAY){let h=0;for(const ch of s)h=(h*31+ch.charCodeAt(0))%97;k=(S.mk[s]||h%4)?'g':'r'}else if(s===TODAY&&S.att[s])k='g';return{k,l}}
  return !T&&w===5&&s>=TODAY?{k:'b'}:null}
 function each(fn){for(let d=new Date(START+'T00:00:00');iso(d)<TODAY;d.setDate(d.getDate()+1)){const s=iso(d),i=dayInfo(s);if(i&&i.l)fn(s,i)}}
-function stats(){let t=0,a=0;each((s,i)=>{t++;if(i.k==='g')a++});return{t,a,p:t?Math.round(a/t*10):0}}
+function stats(){let t=0,a=0;each((s,i)=>{t++;if(i.k==='g')a++});return{t,a,p:t?Math.round(a/t*100):0}}
 function missed(){const r=[];each((s,i)=>{if(i.k==='r')r.push({s,n:i.l[1]})});return r}
 function detail(f,s){
  if(!f)return '<small>В этот день занятий нет</small>';
