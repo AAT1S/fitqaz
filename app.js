@@ -108,8 +108,7 @@ students(){
         ${demoStudents.map(a=>srow(dem(a),0)).join('')}
       </section>`
     + (g===1 ? '' : '<p class="muted">В этой группе нет подключённых аккаунтов студентов.</p>');
-}+`<section class="card">${tv.g===1?reals().map(r=>srow(r,1)).join(''):''}${DB.groups[tv.g].map(a=>srow(dem(a),0)).join('')}</section>${tv.g===1?'':'<p class="muted">В этой группе нет подключённых аккаунтов студентов.</p>'}`;
-
+}
 return head('Студенты')+
 `<p class="muted" style="margin:-6px 0 12px">Выберите группу</p>`+
 [1,2,3,4,5].map(g=>`
