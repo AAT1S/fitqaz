@@ -3,7 +3,8 @@ const $=(s,r=document)=>r.querySelector(s);
 const KEY=curKey();let USER=U[KEY];
 if(!USER){location.replace('auth.html');return}
 if(USER.v!==2){U[KEY]=USER={...USER,s:{xp:0},v:2,created:localISO()};putUser(KEY)}
-const T=USER.role==='teacher',nm=r=>r.fio||r.name,page=document.body.dataset.page;
+const T=USER.role==='teacher',nm=r=>r.fio||r.name;
+const fname=(location.pathname.split('/').pop()||'').replace('.html',''),page=(!fname||fname==='index')?'home':fname;
 if(T?['progress','quests','rating'].includes(page):page==='students'){location.replace('index.html');return}
 const DB={
  quests:[
@@ -20,14 +21,13 @@ const DB={
   5:[['Камила Ж.','СИБ-25-4',1900],['Рустем Н.','СИБ-25-4',1720],['Дана О.','СИБ-25-4',1540]]},
  norms:[['Бег 100 м',0],['Подтягивания',0],['Пресс (1 мин)',0],['Прыжок в длину',0]]
 };
+const groupNames={1:'СИБ-25-7',2:'СИБ-25-6',3:'СБ-24-2',4:'DS-25-7',5:'СИБ-25-4'};
 const dflt=s=>{const o={xp:0,goals:[],qd:[],...(s||{})};o.qp={...o.qp};o.att={...o.att};o.mk={...o.mk};o.qd=[...o.qd];o.goals=[...o.goals];return o};
 let S=dflt(USER.s);
 const save=()=>{USER.s=S;U[KEY]=USER;putUser(KEY)};
 const lvl=(x=S.xp)=>({l:1+Math.floor(x/500),x:x%500});
 const scoreOf=x=>(x||0),score=()=>scoreOf(S.xp);
-const reals=()=>Object.entries(U)
-  .filter(([k,r])=>r.role==='student')
-  .map(([k,r])=>({...r,k:r.k||k}));
+const reals=()=>Object.entries(U).filter(([k,r])=>r.role==='student').map(([k,r])=>({...r,k:r.k||k}));
 const board=()=>[...DB.students.map(s=>({n:s[0],u:s[1],p:s[2]})),...reals().filter(r=>r.k!==KEY).map(r=>({n:nm(r),u:r.uni,p:scoreOf(r.s&&r.s.xp)})),...(T?[]:[{n:nm(USER)+' (вы)',u:USER.uni,p:score(),me:1}])].sort((a,b)=>b.p-a.p);
 const row=(s,i)=>`<div class="st ${s.me?'me':''}"><span class="rk r${i+1}">${i+1}</span><span class="av">${s.n[0]}</span><div><b>${s.n}</b><small>${s.u}</small></div><em>${s.p} 🔥</em></div>`;
 const rows=n=>{const b=board(),m=b.findIndex(s=>s.me);let h=b.slice(0,n).map(row).join('');if(m>=n)h+='<div class="sep">• • •</div>'+row(b[m],m);return h};
@@ -60,18 +60,12 @@ const qcard=(q,qp,qd,btn)=>{const c=qp[q.id]||0,d=qd.includes(q.id);return `<div
 
 const tv={g:null,s:null};
 const pts=r=>scoreOf(r.s&&r.s.xp);
-const dem=a=>({fio:a[0],uni:a[1],s:{xp:a[2]/10}});
+const dem=a=>({fio:a[0],uni:a[1],s:{xp:a[2]}});
 const srow=(r,a)=>{const tg=a?'button':'div';return `<${tg} class="sr" ${a?`data-a="stu" data-id="${r.k}"`:''}><span class="av">${nm(r)[0]}</span><div><b>${nm(r)}</b><small>${r.uni||''}${a?' · '+dflt(r.s).qd.length+'/'+DB.quests.length+' заданий':''}</small></div><em>${pts(r)} 🔥${a?' ›':''}</em></${tg}>`};
 const gcount=g=>(g===1?reals().length:0)+DB.groups[g].length;
 const tile=(h,i,b,s)=>`<a class="tile" href="${h}"><i>${i}</i><b>${b}</b><small>${s}</small></a>`;
 const calTile=tile('calendar.html','📅','Спортивный календарь','Твои тренировки, события и дедлайны');
-const groupNames = {
-  1: 'СИБ-25-7',
-  2: 'СИБ-25-6',
-  3: 'СБ-24-2',
-  4: 'DS-25-7',
-  5: 'СИБ-25-4'
-};
+
 const P={
 home(){const L=lvl();return `
 <header class="top"><div><div class="logo">FIT<b>Q</b>AZ</div><p class="muted">Двигайся. Развивайся. Достигай.</p></div>
@@ -91,34 +85,16 @@ Thome(){return `
 ${tile('students.html','🎓','Студенты','Группы 1–5 и их прогресс')}
 ${tile('students.html','✅','Задания','Подтверждение выполнения')}
 ${tile('profile.html','👤','Профиль','Данные и смена пароля')}</div>
-<section class="card"><div class="row"><h2>СИБ-25-7</h2><a href="students.html">Открыть ›</a></div>${reals().map(r=>srow(r,0)).join('')||'<small>Студентов пока нет</small>'}</section>`},
+<section class="card"><div class="row"><h2>${groupNames[1]}</h2><a href="students.html">Открыть ›</a></div>${reals().map(r=>srow(r,0)).join('')||'<small>Студентов пока нет</small>'}</section>`},
 
 students(){
  if(tv.s&&U[tv.s]){const r=U[tv.s],s=dflt(r.s),L=lvl(s.xp);
-  return headB(nm(r),'tback')+`<div class="card pf"><span class="av">${nm(r)[0]}</span><h2>${nm(r)}</h2><small>${r.uni} · Группа 1</small><b style="font-size:28px">${pts(r)} 🔥</b><small>Уровень ${L.l} · ${L.x} / 500 XP</small></div>
+  return headB(nm(r),'tback')+`<div class="card pf"><span class="av">${nm(r)[0]}</span><h2>${nm(r)}</h2><small>${r.uni} · ${groupNames[1]}</small><b style="font-size:28px">${pts(r)} 🔥</b><small>Уровень ${L.l} · ${L.x} / 500 XP</small></div>
 <p class="muted" style="margin:4px 0 10px">Задания студента — подтверждайте выполнение:</p>`+DB.quests.map(q=>qcard(q,s.qp,s.qd,1)).join('')+`<button class="btn ghost" style="width:100%;margin-top:6px" data-a="tres">Сбросить прогресс студента</button>`}
- if(tv.g){
-  const g = tv.g;
-  const demoStudents = DB.groups[g] || [];
-  const realStudents = g === 1 ? reals() : [];
+ if(tv.g){const g=tv.g;
+  return headB(groupNames[g]||('Группа '+g),'tback')+`<section class="card">${g===1?reals().map(r=>srow(r,1)).join(''):''}${(DB.groups[g]||[]).map(a=>srow(dem(a),0)).join('')}</section>`+(g===1?'':'<p class="muted">В этой группе нет подключённых аккаунтов студентов.</p>')}
+ return head('Студенты')+`<p class="muted" style="margin:-6px 0 12px">Выберите группу</p>`+[1,2,3,4,5].map(g=>`<button class="card gcard" data-a="grp" data-id="${g}"><div><b>${groupNames[g]}</b><small>${gcount(g)} студентов${g===1?' · доступ к заданиям':''}</small></div><span>›</span></button>`).join('')},
 
-  return headB(groupNames[g] || ('Группа ' + g),'tback')
-    + `<section class="card">
-        ${realStudents.map(r=>srow(r,1)).join('')}
-        ${demoStudents.map(a=>srow(dem(a),0)).join('')}
-      </section>`
-    + (g===1 ? '' : '<p class="muted">В этой группе нет подключённых аккаунтов студентов.</p>');
-}
-return head('Студенты')+
-`<p class="muted" style="margin:-6px 0 12px">Выберите группу</p>`+
-[1,2,3,4,5].map(g=>`
-<button class="card gcard" data-a="grp" data-id="${g}">
-  <div>
-    <b>${groupNames[g]}</b>
-    <small>${gcount(g)} студентов${g===1?' · доступ к заданиям':''}</small>
-  </div>
-  <span>›</span>
-</button>`).join('')},
 calendar(){const y=cal.d.getFullYear(),m=cal.d.getMonth(),off=(new Date(y,m,1).getDay()+6)%7,n=new Date(y,m+1,0).getDate();
 let c='<span></span>'.repeat(off);
 for(let i=1;i<=n;i++){const s=iso(new Date(y,m,i)),f=dayInfo(s);c+=`<button class="cd ${s===TODAY?'today':''} ${s===cal.sel?'sel':''}" data-a="day" data-id="${s}">${i}${f?`<u class="dot ${f.k}"></u>`:''}</button>`}
@@ -139,7 +115,7 @@ return head('Успеваемость')+`
 profile(){const G=['Пробежать 5 км без остановки','Сдать все нормативы','Войти в топ-3 рейтинга','Тренироваться 3 раза в неделю'];
 const B=[['🔥','Первый шаг',S.xp>0],['🏃','Бегун',S.xp>=400],['🏆','Квестер',S.qd.length>0],['⭐','Уровень 2',S.xp>=500],['📅','Активист',Object.keys(S.att).length+Object.keys(S.mk).length>=3],['👑','Лидер',S.xp>=1000]];
 return head('Профиль')+`
-<div class="card pf"><span class="av">${nm(USER)[0]}</span><h2>${nm(USER)}</h2><small>${USER.uni} · Группа 1 · ${score()} баллов</small></div>
+<div class="card pf"><span class="av">${nm(USER)[0]}</span><h2>${nm(USER)}</h2><small>${USER.uni} · ${groupNames[1]} · ${score()} баллов</small></div>
 <div class="card"><h2>Мои цели</h2>${G.map((g,i)=>`<div class="goal ${S.goals.includes(i)?'on':''}" data-a="goal" data-id="${i}"><span>${S.goals.includes(i)?'✓':''}</span>${g}</div>`).join('')}</div>
 <div class="card"><h2 style="margin-bottom:10px">Достижения</h2><div class="badges">${B.map(b=>`<div class="bd ${b[2]?'':'off'}"><i>${b[0]}</i>${b[1]}</div>`).join('')}</div></div>
 <div class="stack"><button class="btn" data-a="pwd">🔑 Сменить пароль</button><button class="btn ghost" data-a="reset">Сбросить прогресс</button><button class="btn ghost" data-a="logout">Выйти из аккаунта</button></div>`},
@@ -157,6 +133,7 @@ const NAV=[['index','Главная','🏠','home'],['calendar','Календа�
 const NAVT=[['index','Главная','🏠','home'],['calendar','Календарь','📅','calendar'],['students','Студенты','🎓','students'],['profile','Профиль','👤','profile']];
 let lastSig='';const sig=()=>JSON.stringify(U);
 function render(){const fn=(T&&P['T'+page])||P[page];
+ if(!fn){location.replace('index.html');return}
  $('#app').innerHTML=fn()+`<div id="net" class="net ${NET.s}">${netText()}</div><nav>${(T?NAVT:NAV).map(n=>`<a href="${n[0]}.html" class="${n[3]===page?'on':''}"><i>${n[2]}</i>${n[1]}</a>`).join('')}</nav>`;
  rankFx();lastSig=sig()}
 
