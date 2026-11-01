@@ -25,7 +25,7 @@ async function loadUsers(){let raw={},gr=null;
  try{if(DBURL){const r=await fetch(DBURL+'/fitqaz.json');
   if(!r.ok)throw new Error(r.status===401||r.status===403?'Нет доступа к базе: во вкладке Rules вставьте правила и нажмите «Опубликовать»':r.status===404?'Неверный адрес базы в config.js':'Ошибка базы '+r.status);
   const all=(await r.json())||{};raw=all.users||{};gr=all.groups;NET.s='ok'}else{raw=JSON.parse(localStorage.getItem(UK))||{};gr=JSON.parse(localStorage.getItem('fitqaz_groups')||'null')}G=normG(gr)}catch(e){if(DBURL)netErr(e)}
- const n={};for(const[k,r]of Object.entries(raw))if(r){r.k=r.k||k;n[r.k]=r}return n}
+ const n={};for(const[k,r]of Object.entries(raw))if(r&&typeof r==='object'){r.k=r.k||k;n[r.k]=r}return n}
 async function refresh(){const n=await loadUsers();for(const k in n)if(!touched[k]||Date.now()-touched[k]>4000)U[k]=n[k]}
 function putUser(k){touched[k]=Date.now();U[k].k=k;
  if(DBURL)fetch(`${DBURL}/fitqaz/users/${enc(k)}.json`,{method:'PUT',body:JSON.stringify(U[k])}).then(r=>{if(!r.ok)netErr(new Error('Не удалось сохранить в базу (код '+r.status+')'))}).catch(netErr);
