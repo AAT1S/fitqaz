@@ -35,11 +35,14 @@ async function loadUsers(){let raw={},gr=null;
   if(!ex||!ex.hash)fetch(upath(r.k)+'.json',{method:'PUT',body:JSON.stringify(r)}).then(del).catch(()=>{});else del()}
  return n}
 async function refresh(){const n=await loadUsers();for(const k in n)if(!touched[k]||Date.now()-touched[k]>4000)U[k]=n[k]}
+function putUserNow(k){touched[k]=Date.now();U[k].k=k;
+ if(!DBURL){localStorage.setItem(UK,JSON.stringify(U));return Promise.resolve()}
+ return fetch(upath(k)+'.json',{method:'PUT',keepalive:true,body:JSON.stringify(U[k])}).then(r=>{if(!r.ok)throw new Error(r.status===401||r.status===403?'нет доступа к базе: во вкладке Rules вставьте правила и нажмите «Опубликовать»':'ошибка базы, код '+r.status)})}
 function putUser(k){touched[k]=Date.now();U[k].k=k;
- if(DBURL)fetch(upath(k)+'.json',{method:'PUT',body:JSON.stringify(U[k])}).then(r=>{if(!r.ok)netErr(new Error('Не удалось сохранить в базу (код '+r.status+')'))}).catch(netErr);
+ if(DBURL)fetch(upath(k)+'.json',{method:'PUT',keepalive:true,body:JSON.stringify(U[k])}).then(r=>{if(!r.ok)netErr(new Error('Не удалось сохранить в базу (код '+r.status+')'))}).catch(netErr);
  else localStorage.setItem(UK,JSON.stringify(U))}
 function putS(k){touched[k]=Date.now();
- if(DBURL)fetch(upath(k)+'/s.json',{method:'PUT',body:JSON.stringify(U[k].s||{})}).then(r=>{if(!r.ok)netErr(new Error('Не удалось сохранить в базу (код '+r.status+')'))}).catch(netErr);
+ if(DBURL)fetch(upath(k)+'/s.json',{method:'PUT',keepalive:true,body:JSON.stringify(U[k].s||{})}).then(r=>{if(!r.ok)netErr(new Error('Не удалось сохранить в базу (код '+r.status+')'))}).catch(netErr);
  else localStorage.setItem(UK,JSON.stringify(U))}
 const DEMO=[
  {k:'student',name:'student',fio:'Алимжан',role:'student',pw:'student123',s:{xp:0}},
@@ -76,15 +79,21 @@ if(document.body.dataset.page==='auth')READY.then(()=>{
  app.addEventListener('click',e=>{const b=e.target.closest('[data-m]'),f=e.target.closest('[data-fill]');
   if(b){mode=b.dataset.m;draw()}
   if(f){const d=DEMO.find(x=>x.k===f.dataset.fill);document.getElementById('n').value=d.name;document.getElementById('p').value=d.pw}});
- app.addEventListener('submit',async e=>{e.preventDefault();
-  await refresh();const name=v('n').trim(),k=name.toLowerCase(),pw=v('p');
-  if(mode==='reg'){
-   if(name.length<2||name.length>20)return fail('Имя: от 2 до 20 символов');
-   if(U[k])return fail('Такое имя уже занято — выберите другое или войдите');
-   if(pw.length<6)return fail('Пароль: минимум 6 символов');
-   if(pw!==v('p2'))return fail('Пароли не совпадают');
-   const salt=newSalt();U[k]={k,name,group:v('g'),role:'student',salt,hash:await hash(pw,salt),s:{xp:0},v:2,created:localISO()};putUser(k);
-  }else{const r=U[k];if(!r||await hash(pw,r.salt)!==r.hash)return fail('Неверное имя или пароль')}
-  localStorage.setItem(SK,k);location.replace('index.html')});
+ let busy=false;
+ app.addEventListener('submit',async e=>{e.preventDefault();if(busy)return;busy=true;
+  try{
+   fail('Подождите…');await refresh();
+   const name=v('n').trim(),k=name.toLowerCase(),pw=v('p');
+   if(mode==='reg'){
+    if(name.length<2||name.length>20)return fail('Имя: от 2 до 20 символов');
+    if(U[k])return fail('Такое имя уже занято — выберите другое или войдите');
+    if(pw.length<6)return fail('Пароль: минимум 6 символов');
+    if(pw!==v('p2'))return fail('Пароли не совпадают');
+    const salt=newSalt();U[k]={k,name,group:v('g'),role:'student',salt,hash:await hash(pw,salt),s:{xp:0},v:2,created:localISO()};
+    try{await putUserNow(k)}catch(err){delete U[k];return fail('Не удалось создать аккаунт: '+(err.message==='Failed to fetch'?'нет связи с базой, проверьте адрес в config.js и интернет':err.message))}
+   }else{const r=U[k];if(!r||await hash(pw,r.salt)!==r.hash)return fail('Неверное имя или пароль')}
+   localStorage.setItem(SK,k);location.replace('index.html');
+  }catch(err){fail('Ошибка: '+(err&&err.message||err))}
+  finally{busy=false}});
  draw();
 });
