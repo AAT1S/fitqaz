@@ -13,18 +13,11 @@ const DB={
   {id:3,n:'100 приседаний',xp:400,max:100,u:'',step:25},
   {id:4,n:'Пройти 50 000 шагов',xp:700,max:50,u:'тыс.',step:10}],
  students:[['Асылхан Б.','СИБ-24-3',2480],['Нурлан К.','СИБ-25-6',2020],['Айгерим С.','АРХ-24-2',1480],['Данияр М.','МАШ-25-4',1250],['Аружан Т.','СБ-24-2',750],['Тимур А.','СИБ-25-4',540],['Мадина Е.','DS-25-7',400]],
- groups:{
-  1:[['Бекзат Ж.','СИБ-25-7',1380],['Сабина К.','СИБ-25-7',1210],['Мирас Д.','СИБ-25-7',980]],
-  2:[['Нурлан К.','СИБ-25-6',2360],['Данияр М.','СИБ-25-6',2210],['Алина С.','СИБ-25-6',1760]],
-  3:[['Айгерим С.','СБ-24-2',2290],['Тимур А.','СБ-24-2',2050],['Диас Р.','СБ-24-2',1600]],
-  4:[['Аружан Т.','DS-25-7',2180],['Мадина Е.','DS-25-7',1990],['Ерлан Б.','DS-25-7',1450]],
-  5:[['Камила Ж.','СИБ-25-4',1900],['Рустем Н.','СИБ-25-4',1720],['Дана О.','СИБ-25-4',1540]]},
  norms:[['Бег 100 м',0],['Подтягивания',0],['Пресс (1 мин)',0],['Прыжок в длину',0]]
 };
-const groupNames={1:'СИБ-25-7',2:'СИБ-25-6',3:'СБ-24-2',4:'DS-25-7',5:'СИБ-25-4'};
 const dflt=s=>{const o={xp:0,goals:[],qd:[],...(s||{})};o.qp={...o.qp};o.att={...o.att};o.mk={...o.mk};o.qd=[...o.qd];o.goals=[...o.goals];return o};
 let S=dflt(USER.s);
-const save=()=>{USER.s=S;U[KEY]=USER;putUser(KEY)};
+const save=()=>{USER.s=S;U[KEY]=USER;putS(KEY)};
 const lvl=(x=S.xp)=>({l:1+Math.floor(x/500),x:x%500});
 const scoreOf=x=>(x||0),score=()=>scoreOf(S.xp);
 const reals=()=>Object.entries(U).filter(([k,r])=>r.role==='student').map(([k,r])=>({...r,k:r.k||k}));
@@ -60,9 +53,12 @@ const qcard=(q,qp,qd,btn)=>{const c=qp[q.id]||0,d=qd.includes(q.id);return `<div
 
 const tv={g:null,s:null};
 const pts=r=>scoreOf(r.s&&r.s.xp);
-const dem=a=>({fio:a[0],uni:a[1],s:{xp:a[2]}});
 const srow=(r,a)=>{const tg=a?'button':'div';return `<${tg} class="sr" ${a?`data-a="stu" data-id="${r.k}"`:''}><span class="av">${nm(r)[0]}</span><div><b>${nm(r)}</b><small>${r.uni||''}${a?' · '+dflt(r.s).qd.length+'/'+DB.quests.length+' заданий':''}</small></div><em>${pts(r)} 🔥${a?' ›':''}</em></${tg}>`};
-const gcount=g=>(g===1?reals().length:0)+DB.groups[g].length;
+const gKeyOf=r=>{if(r.group==null||r.group==='')return null;const v=String(r.group);for(const k in G)if(k===v||G[k]===v)return k;return null};
+const studentsOf=g=>reals().filter(r=>gKeyOf(r)===g).sort((a,b)=>nm(a).localeCompare(nm(b)));
+const gname=r=>{const k=gKeyOf(r);return k?G[k]:(r.group?String(r.group):'')};
+const gcount=g=>studentsOf(g).length;
+const plural=n=>n+' '+((n%10===1&&n%100!==11)?'студент':(n%10>=2&&n%10<=4&&(n%100<10||n%100>=20))?'студента':'студентов');
 const tile=(h,i,b,s)=>`<a class="tile" href="${h}"><i>${i}</i><b>${b}</b><small>${s}</small></a>`;
 const calTile=tile('calendar.html','📅','Спортивный календарь','Твои тренировки, события и дедлайны');
 
@@ -82,18 +78,18 @@ Thome(){return `
 <a class="lvl" href="profile.html"><span>${nm(USER)}</span><small>Преподаватель · ${USER.uni}</small></a></header>
 <section class="hero"><h1>Группы и студенты</h1><p>Подтверждай задания студентов<br>и начисляй им баллы</p><a class="btn" href="students.html">Открыть кабинет</a></section>
 <div class="grid">${calTile}
-${tile('students.html','🎓','Студенты','Группы 1–5 и их прогресс')}
+${tile('students.html','🎓','Студенты','Группы и их прогресс')}
 ${tile('students.html','✅','Задания','Подтверждение выполнения')}
 ${tile('profile.html','👤','Профиль','Данные и смена пароля')}</div>
-<section class="card"><div class="row"><h2>${groupNames[1]}</h2><a href="students.html">Открыть ›</a></div>${reals().map(r=>srow(r,0)).join('')||'<small>Студентов пока нет</small>'}</section>`},
+<section class="card"><div class="row"><h2>Группы</h2><a href="students.html">Открыть ›</a></div>${Object.keys(G).map(k=>`<div class="sr" style="grid-template-columns:1fr auto"><b>${G[k]}</b><small>${plural(gcount(k))}</small></div>`).join('')||'<small>Групп пока нет</small>'}</section>`},
 
 students(){
  if(tv.s&&U[tv.s]){const r=U[tv.s],s=dflt(r.s),L=lvl(s.xp);
-  return headB(nm(r),'tback')+`<div class="card pf"><span class="av">${nm(r)[0]}</span><h2>${nm(r)}</h2><small>${r.uni} · ${groupNames[1]}</small><b style="font-size:28px">${pts(r)} 🔥</b><small>Уровень ${L.l} · ${L.x} / 500 XP</small></div>
+  return headB(nm(r),'tback')+`<div class="card pf"><span class="av">${nm(r)[0]}</span><h2>${nm(r)}</h2><small>${r.uni} · ${gname(r)||'без группы'}</small><b style="font-size:28px">${pts(r)} 🔥</b><small>Уровень ${L.l} · ${L.x} / 500 XP</small></div>
 <p class="muted" style="margin:4px 0 10px">Задания студента — подтверждайте выполнение:</p>`+DB.quests.map(q=>qcard(q,s.qp,s.qd,1)).join('')+`<button class="btn ghost" style="width:100%;margin-top:6px" data-a="tres">Сбросить прогресс студента</button>`}
- if(tv.g){const g=tv.g;
-  return headB(groupNames[g]||('Группа '+g),'tback')+`<section class="card">${g===1?reals().map(r=>srow(r,1)).join(''):''}${(DB.groups[g]||[]).map(a=>srow(dem(a),0)).join('')}</section>`+(g===1?'':'<p class="muted">В этой группе нет подключённых аккаунтов студентов.</p>')}
- return head('Студенты')+`<p class="muted" style="margin:-6px 0 12px">Выберите группу</p>`+[1,2,3,4,5].map(g=>`<button class="card gcard" data-a="grp" data-id="${g}"><div><b>${groupNames[g]}</b><small>${gcount(g)} студентов${g===1?' · доступ к заданиям':''}</small></div><span>›</span></button>`).join('')},
+ if(tv.g&&G[tv.g]){const g=tv.g,L=studentsOf(g);
+  return headB(G[g],'tback')+(L.length?`<section class="card">${L.map(r=>srow(r,1)).join('')}</section>`:'<div class="card"><small>В этой группе пока нет студентов</small></div>')}
+ return head('Студенты')+`<p class="muted" style="margin:-6px 0 12px">Выберите группу</p>`+(Object.keys(G).length?'':'<div class="card"><small>Групп пока нет</small></div>')+Object.keys(G).map(g=>`<button class="card gcard" data-a="grp" data-id="${g}"><div><b>${G[g]}</b><small>${plural(gcount(g))}</small></div><span>›</span></button>`).join('')},
 
 calendar(){const y=cal.d.getFullYear(),m=cal.d.getMonth(),off=(new Date(y,m,1).getDay()+6)%7,n=new Date(y,m+1,0).getDate();
 let c='<span></span>'.repeat(off);
@@ -115,14 +111,14 @@ return head('Успеваемость')+`
 profile(){const G=['Пробежать 5 км без остановки','Сдать все нормативы','Войти в топ-3 рейтинга','Тренироваться 3 раза в неделю'];
 const B=[['🔥','Первый шаг',S.xp>0],['🏃','Бегун',S.xp>=400],['🏆','Квестер',S.qd.length>0],['⭐','Уровень 2',S.xp>=500],['📅','Активист',Object.keys(S.att).length+Object.keys(S.mk).length>=3],['👑','Лидер',S.xp>=1000]];
 return head('Профиль')+`
-<div class="card pf"><span class="av">${nm(USER)[0]}</span><h2>${nm(USER)}</h2><small>${USER.uni} · ${groupNames[1]} · ${score()} баллов</small></div>
+<div class="card pf"><span class="av">${nm(USER)[0]}</span><h2>${nm(USER)}</h2><small>${USER.uni}${gname(USER)?' · '+gname(USER):''} · ${score()} баллов</small></div>
 <div class="card"><h2>Мои цели</h2>${G.map((g,i)=>`<div class="goal ${S.goals.includes(i)?'on':''}" data-a="goal" data-id="${i}"><span>${S.goals.includes(i)?'✓':''}</span>${g}</div>`).join('')}</div>
 <div class="card"><h2 style="margin-bottom:10px">Достижения</h2><div class="badges">${B.map(b=>`<div class="bd ${b[2]?'':'off'}"><i>${b[0]}</i>${b[1]}</div>`).join('')}</div></div>
 <div class="stack"><button class="btn" data-a="pwd">🔑 Сменить пароль</button><button class="btn ghost" data-a="reset">Сбросить прогресс</button><button class="btn ghost" data-a="logout">Выйти из аккаунта</button></div>`},
 
 Tprofile(){return head('Профиль')+`
 <div class="card pf"><span class="av">${nm(USER)[0]}</span><h2>${nm(USER)}</h2><small>Преподаватель · ${USER.uni}</small></div>
-<div class="card"><small>Группы: 1–5 · Студентов в системе: ${reals().length+Object.values(DB.groups).reduce((a,g)=>a+g.length,0)}</small></div>
+<div class="card"><small>Групп: ${Object.keys(G).length} · Студентов в группах: ${Object.keys(G).reduce((a,g)=>a+studentsOf(g).length,0)}</small></div>
 <div class="stack"><button class="btn" data-a="pwd">🔑 Сменить пароль</button><button class="btn ghost" data-a="logout">Выйти из аккаунта</button></div>`},
 
 quests(){return head('Квесты')+`<p class="muted" style="margin:-6px 0 12px">Задания подтверждает преподаватель — баллы начислятся сразу после подтверждения.</p>`+DB.quests.map(q=>qcard(q,S.qp,S.qd,0)).join('')},
@@ -131,7 +127,7 @@ rating(){return head('Рейтинг')+`<section class="card">${rows(20)}</secti
 
 const NAV=[['index','Главная','🏠','home'],['calendar','Календарь','📅','calendar'],['progress','Успеваемость','📊','progress'],['profile','Профиль','👤','profile']];
 const NAVT=[['index','Главная','🏠','home'],['calendar','Календарь','📅','calendar'],['students','Студенты','🎓','students'],['profile','Профиль','👤','profile']];
-let lastSig='';const sig=()=>JSON.stringify(U);
+let lastSig='';const sig=()=>JSON.stringify([U,G]);
 function render(){const fn=(T&&P['T'+page])||P[page];
  if(!fn){location.replace('index.html');return}
  $('#app').innerHTML=fn()+`<div id="net" class="net ${NET.s}">${netText()}</div><nav>${(T?NAVT:NAV).map(n=>`<a href="${n[0]}.html" class="${n[3]===page?'on':''}"><i>${n[2]}</i>${n[1]}</a>`).join('')}</nav>`;
@@ -170,15 +166,15 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b
  if(a==='here'){S.att[b.dataset.id]='a';addXp(10)}
  if(a==='mk'){S.mk[b.dataset.id]=cal.sel;addXp(20)}
  if(a==='goal'){S.goals=S.goals.includes(id)?S.goals.filter(x=>x!==id):[...S.goals,id];save()}
- if(a==='grp')tv.g=id;
+ if(a==='grp')tv.g=b.dataset.id;
  if(a==='stu')tv.s=b.dataset.id;
  if(a==='tback'){if(tv.s)tv.s=null;else tv.g=null}
  if(a==='tq'){const r=U[tv.s];if(!r)return;const s=r.s=dflt(r.s),q=DB.quests.find(x=>x.id===id);
   s.qp[id]=Math.min(q.max,(s.qp[id]||0)+q.step);
   if(s.qp[id]>=q.max&&!s.qd.includes(id)){s.qd.push(id);s.xp+=q.xp;s.log={...s.log};s.log[TODAY]=(s.log[TODAY]||0)+q.xp;toast(`${nm(r)}: +${q.xp} XP начислено`)}
-  putUser(tv.s)}
- if(a==='tres'&&confirm('Сбросить прогресс студента?')){U[tv.s].s={xp:0};putUser(tv.s)}
- if(a==='reset'&&confirm('Сбросить весь прогресс?')){U[KEY].s={xp:0};putUser(KEY);location.reload();return}
+  putS(tv.s)}
+ if(a==='tres'&&confirm('Сбросить прогресс студента?')){U[tv.s].s={xp:0};putS(tv.s)}
+ if(a==='reset'&&confirm('Сбросить весь прогресс?')){U[KEY].s={xp:0};putS(KEY);location.reload();return}
  if(a==='logout'){localStorage.removeItem(SK);location.replace('auth.html');return}
  render()});
 render();
