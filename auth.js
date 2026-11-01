@@ -8,7 +8,8 @@ if(window.addEventListener){const showErr=m=>{const a=document.getElementById('a
 const UK='fitqaz_users',SK='fitqaz_session',DBURL=(window.FITQAZ_DB_URL||'').replace(/\/$/,'');
 const UNIS=['KSTU','Университет Астана','КазНУ','ЕНУ им. Л.Н. Гумилева','КБТУ','SATB','КазНПУ','МУИТ','Другой вуз'];
 let U={},G={};const touched={};
-const normG=g=>{const o={};if(g&&typeof g==='object')for(const[k,v]of Object.entries(g)){if(v==null)continue;o[k]=typeof v==='string'?v:(v.name||String(k))}return o};const NET={s:DBURL?'wait':'local',m:''};
+const clean=x=>String(x).replace(/["<>]/g,'').trim();
+const normG=g=>{const o={};if(typeof g==='string'){g.split(/[,;\n]/).map(clean).filter(Boolean).forEach(x=>o[x]=x);return o}if(g&&typeof g==='object')for(const[k,v]of Object.entries(g)){if(v==null)continue;o[k]=typeof v==='string'?v:(v.name||String(k))}return o};const NET={s:DBURL?'wait':'local',m:''};
 const netText=()=>({local:'⚪ Локальный режим: данные только на этом устройстве',ok:'🟢 Онлайн: общая база',wait:'🟡 Подключение…',err:'🔴 '+NET.m})[NET.s];
 const netErr=e=>{NET.s='err';NET.m=e.message==='Failed to fetch'?'Нет связи с базой: проверьте адрес в config.js и интернет':e.message};
 const enc=k=>[...k].map(c=>/[a-z0-9_]/.test(c)?c:'-'+c.charCodeAt(0).toString(36)+'-').join('');
