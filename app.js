@@ -5,7 +5,7 @@ if(!USER){location.replace('auth.html');return}
 if(USER.v!==2){U[KEY]=USER={...USER,s:{xp:0},v:2,created:localISO()};putUser(KEY)}
 const T=USER.role==='teacher',nm=r=>r.fio||r.name;
 const fname=(location.pathname.split('/').pop()||'').replace('.html',''),page=(!fname||fname==='index')?'home':fname;
-if(T?['progress','quests','rating'].includes(page):page==='students'){location.replace('index.html');return}
+if(T?['progress','quests'].includes(page):page==='students'){location.replace('index.html');return}
 const DB={
  quests:[
   {id:1,n:'Пробежать 15 км за неделю',xp:800,max:15,u:'км',step:5},
@@ -21,7 +21,7 @@ const save=()=>{USER.s=S;U[KEY]=USER;putS(KEY)};
 const lvl=(x=S.xp)=>({l:1+Math.floor(x/500),x:x%500});
 const scoreOf=x=>(x||0),score=()=>scoreOf(S.xp);
 const reals=()=>Object.entries(U).filter(([k,r])=>r.role==='student').map(([k,r])=>({...r,k:r.k||k}));
-const board=()=>[...DB.students.map(s=>({n:s[0],u:s[1],p:s[2]})),...reals().filter(r=>r.k!==KEY).map(r=>({n:nm(r),u:r.uni,p:scoreOf(r.s&&r.s.xp)})),...(T?[]:[{n:nm(USER)+' (вы)',u:USER.uni,p:score(),me:1}])].sort((a,b)=>b.p-a.p);
+const board=()=>[...DB.students.map(s=>({n:s[0],u:s[1],p:s[2]})),...reals().filter(r=>r.k!==KEY).map(r=>({n:nm(r),u:gname(r),p:scoreOf(r.s&&r.s.xp)})),...(T?[]:[{n:nm(USER)+' (вы)',u:gname(USER),p:score(),me:1}])].sort((a,b)=>b.p-a.p);
 const row=(s,i)=>`<div class="st ${s.me?'me':''}"><span class="rk r${i+1}">${i+1}</span><span class="av">${s.n[0]}</span><div><b>${s.n}</b><small>${s.u}</small></div><em>${s.p} 🔥</em></div>`;
 const rows=n=>{const b=board(),m=b.findIndex(s=>s.me);let h=b.slice(0,n).map(row).join('');if(m>=n)h+='<div class="sep">• • •</div>'+row(b[m],m);return h};
 function rankFx(){const m=$('.st.me');if(!m)return;const r=board().findIndex(s=>s.me)+1,p=S.rank;if(p===r)return;S.rank=r;save();
@@ -37,7 +37,12 @@ const LES={2:['10:00','Футбол','Спортзал №1'],4:['15:30','Пла
 const cal={d:new Date(new Date().getFullYear(),new Date().getMonth(),1),sel:TODAY};
 const fmt=s=>new Date(s+'T00:00:00').toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
 function dayInfo(s){if(s<START||s>END)return null;const w=new Date(s+'T00:00:00').getDay(),l=LES[w];
- if(l){let k='n';if(T)k=s<TODAY?'g':'n';else if(s<TODAY){let h=0;for(const ch of s)h=(h*31+ch.charCodeAt(0))%97;k=(S.mk[s]||h%4)?'g':'r'}else if(s===TODAY&&S.att[s])k='g';return{k,l}}
+ if(l){let k='n';const m=S.att[s];
+  if(T)k=s<TODAY?'g':'n';
+  else if(S.mk[s]||m==='a')k='g';
+  else if(m==='m')k='r';
+  else if(s<TODAY){let h=0;for(const ch of s)h=(h*31+ch.charCodeAt(0))%97;k=(h%4)?'g':'r'}
+  return{k,l}}
  return !T&&w===5&&s>=TODAY?{k:'b'}:null}
 function each(fn){for(let d=new Date(START+'T00:00:00');iso(d)<TODAY;d.setDate(d.getDate()+1)){const s=iso(d),i=dayInfo(s);if(i&&i.l)fn(s,i)}}
 function stats(){let t=0,a=0;each((s,i)=>{t++;if(i.k==='g')a++});return{t,a,p:t?Math.round(a/t*100):0}}
@@ -46,14 +51,18 @@ function detail(f,s){
  if(!f)return '<small>В этот день занятий нет</small>';
  if(f.k==='b'){const m=missed();return `<div class="ev"><div><span class="time">16:00</span><b>Отработка пропусков</b><small>Спортзал №1</small></div></div>`+(m.length?m.map(x=>`<div class="ev" style="margin-top:12px"><small>${x.n}, ${fmt(x.s)}</small><button class="btn sm" data-a="mk" data-id="${x.s}">Отработать</button></div>`).join(''):'<p class="muted" style="margin-top:10px">Пропусков нет, отрабатывать нечего 👍</p>')}
  const st={n:'Предстоит',g:T?'Проведено':S.mk[s]?'Отработано':'Посещено',r:'Пропуск'}[f.k];
- return `<div class="ev"><div><span class="time">${f.l[0]}</span><b>${f.l[1]}</b><small>${f.l[2]} · ${st}</small></div>${!T&&s===TODAY&&f.k==='n'?`<button class="btn sm" data-a="here" data-id="${s}">Я пришёл</button>`:''}</div>`}
+ return `<div class="ev"><div><span class="time">${f.l[0]}</span><b>${f.l[1]}</b><small>${f.l[2]} · ${st}</small></div></div>${T?attList(s):''}`}
+const attList=s=>{if(s>TODAY)return '<p class="muted" style="margin-top:12px">Отметка посещаемости будет доступна в день занятия</p>';
+ const L=reals().filter(r=>gKeyOf(r)).sort((a,b)=>(gKeyOf(a)+nm(a)).localeCompare(gKeyOf(b)+nm(b)));
+ if(!L.length)return '<p class="muted" style="margin-top:12px">Нет студентов в группах</p>';
+ return '<div class="day">Отметка посещаемости</div>'+L.map(r=>{const v=((r.s||{}).att||{})[s];return `<div class="ev" style="margin-top:10px"><div><b>${nm(r)}</b><small>${gname(r)}</small></div><span class="mk"><button class="btn sm ${v==='a'?'on':'ghost'}" data-a="att" data-id="${r.k}" data-v="a">Пришёл</button><button class="btn sm ${v==='m'?'':'ghost'}" data-a="att" data-id="${r.k}" data-v="m">Нет</button></span></div>`}).join('')};
 function weekData(){const r=[];for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);r.push([['Вс','Пн','Вт','Ср','Чт','Пт','Сб'][d.getDay()],(S.log||{})[iso(d)]||0])}return r}
 const qcard=(q,qp,qd,btn)=>{const c=qp[q.id]||0,d=qd.includes(q.id);return `<div class="card"><div class="row"><b>${q.n}</b><small>+${q.xp} XP</small></div><i class="bar"><u style="width:${c/q.max*100}%"></u></i>
 <div class="row" style="margin:10px 0 0"><small>${c} / ${q.max} ${q.u}</small>${d?'<span class="btn sm on">Выполнено ✓</span>':btn?`<button class="btn sm" data-a="tq" data-id="${q.id}">Подтвердить +${q.step} ${q.u}</button>`:`<small>⏳ ${c?'В процессе':'Ожидает подтверждения'}</small>`}</div></div>`};
 
 const tv={g:null,s:null};
 const pts=r=>scoreOf(r.s&&r.s.xp);
-const srow=(r,a)=>{const tg=a?'button':'div';return `<${tg} class="sr" ${a?`data-a="stu" data-id="${r.k}"`:''}><span class="av">${nm(r)[0]}</span><div><b>${nm(r)}</b><small>${r.uni||''}${a?' · '+dflt(r.s).qd.length+'/'+DB.quests.length+' заданий':''}</small></div><em>${pts(r)} 🔥${a?' ›':''}</em></${tg}>`};
+const srow=(r,a)=>{const tg=a?'button':'div';return `<${tg} class="sr" ${a?`data-a="stu" data-id="${r.k}"`:''}><span class="av">${nm(r)[0]}</span><div><b>${nm(r)}</b><small>${[gname(r),a?dflt(r.s).qd.length+'/'+DB.quests.length+' заданий':''].filter(Boolean).join(' · ')}</small></div><em>${pts(r)} 🔥${a?' ›':''}</em></${tg}>`};
 const gKeyOf=r=>{if(r.group==null||r.group==='')return null;const v=String(r.group);for(const k in G)if(k===v||G[k]===v)return k;return null};
 const studentsOf=g=>reals().filter(r=>gKeyOf(r)===g).sort((a,b)=>nm(a).localeCompare(nm(b)));
 const gname=r=>{const k=gKeyOf(r);return k?G[k]:(r.group?String(r.group):'')};
@@ -75,17 +84,17 @@ ${tile('quests.html','🏆','Еженедельные квесты','Выпол�
 
 Thome(){return `
 <header class="top"><div><div class="logo">FIT<b>Q</b>AZ</div><p class="muted">Кабинет преподавателя</p></div>
-<a class="lvl" href="profile.html"><span>${nm(USER)}</span><small>Преподаватель · ${USER.uni}</small></a></header>
+<a class="lvl" href="profile.html"><span>${nm(USER)}</span><small>Преподаватель</small></a></header>
 <section class="hero"><h1>Группы и студенты</h1><p>Подтверждай задания студентов<br>и начисляй им баллы</p><a class="btn" href="students.html">Открыть кабинет</a></section>
 <div class="grid">${calTile}
 ${tile('students.html','🎓','Студенты','Группы и их прогресс')}
 ${tile('students.html','✅','Задания','Подтверждение выполнения')}
 ${tile('profile.html','👤','Профиль','Данные и смена пароля')}</div>
-<section class="card"><div class="row"><h2>Группы</h2><a href="students.html">Открыть ›</a></div>${Object.keys(G).map(k=>`<div class="sr" style="grid-template-columns:1fr auto"><b>${G[k]}</b><small>${plural(gcount(k))}</small></div>`).join('')||'<small>Групп пока нет</small>'}</section>`},
+<section class="card"><div class="row"><h2>🏆 Топ студентов</h2><a href="rating.html">Весь рейтинг ›</a></div>${rows(5)}</section>`},
 
 students(){
  if(tv.s&&U[tv.s]){const r=U[tv.s],s=dflt(r.s),L=lvl(s.xp);
-  return headB(nm(r),'tback')+`<div class="card pf"><span class="av">${nm(r)[0]}</span><h2>${nm(r)}</h2><small>${r.uni} · ${gname(r)||'без группы'}</small><b style="font-size:28px">${pts(r)} 🔥</b><small>Уровень ${L.l} · ${L.x} / 500 XP</small></div>
+  return headB(nm(r),'tback')+`<div class="card pf"><span class="av">${nm(r)[0]}</span><h2>${nm(r)}</h2><small>${gname(r)||'без группы'}</small><b style="font-size:28px">${pts(r)} 🔥</b><small>Уровень ${L.l} · ${L.x} / 500 XP</small></div>
 <p class="muted" style="margin:4px 0 10px">Задания студента — подтверждайте выполнение:</p>`+DB.quests.map(q=>qcard(q,s.qp,s.qd,1)).join('')+`<button class="btn ghost" style="width:100%;margin-top:6px" data-a="tres">Сбросить прогресс студента</button>`}
  if(tv.g&&G[tv.g]){const g=tv.g,L=studentsOf(g);
   return headB(G[g],'tback')+(L.length?`<section class="card">${L.map(r=>srow(r,1)).join('')}</section>`:'<div class="card"><small>В этой группе пока нет студентов</small></div>')}
@@ -111,13 +120,13 @@ return head('Успеваемость')+`
 profile(){const G=['Пробежать 5 км без остановки','Сдать все нормативы','Войти в топ-3 рейтинга','Тренироваться 3 раза в неделю'];
 const B=[['🔥','Первый шаг',S.xp>0],['🏃','Бегун',S.xp>=400],['🏆','Квестер',S.qd.length>0],['⭐','Уровень 2',S.xp>=500],['📅','Активист',Object.keys(S.att).length+Object.keys(S.mk).length>=3],['👑','Лидер',S.xp>=1000]];
 return head('Профиль')+`
-<div class="card pf"><span class="av">${nm(USER)[0]}</span><h2>${nm(USER)}</h2><small>${USER.uni}${gname(USER)?' · '+gname(USER):''} · ${score()} баллов</small></div>
+<div class="card pf"><span class="av">${nm(USER)[0]}</span><h2>${nm(USER)}</h2><small>${gname(USER)?gname(USER)+' · ':''}${score()} баллов</small></div>
 <div class="card"><h2>Мои цели</h2>${G.map((g,i)=>`<div class="goal ${S.goals.includes(i)?'on':''}" data-a="goal" data-id="${i}"><span>${S.goals.includes(i)?'✓':''}</span>${g}</div>`).join('')}</div>
 <div class="card"><h2 style="margin-bottom:10px">Достижения</h2><div class="badges">${B.map(b=>`<div class="bd ${b[2]?'':'off'}"><i>${b[0]}</i>${b[1]}</div>`).join('')}</div></div>
 <div class="stack"><button class="btn" data-a="pwd">🔑 Сменить пароль</button><button class="btn ghost" data-a="reset">Сбросить прогресс</button><button class="btn ghost" data-a="logout">Выйти из аккаунта</button></div>`},
 
 Tprofile(){return head('Профиль')+`
-<div class="card pf"><span class="av">${nm(USER)[0]}</span><h2>${nm(USER)}</h2><small>Преподаватель · ${USER.uni}</small></div>
+<div class="card pf"><span class="av">${nm(USER)[0]}</span><h2>${nm(USER)}</h2><small>Преподаватель</small></div>
 <div class="card"><small>Групп: ${Object.keys(G).length} · Студентов в группах: ${Object.keys(G).reduce((a,g)=>a+studentsOf(g).length,0)}</small></div>
 <div class="stack"><button class="btn" data-a="pwd">🔑 Сменить пароль</button><button class="btn ghost" data-a="logout">Выйти из аккаунта</button></div>`},
 
@@ -163,7 +172,9 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b
  if(a==='pwd')return pwdModal();
  if(a==='cm')cal.d=new Date(cal.d.getFullYear(),cal.d.getMonth()+id,1);
  if(a==='day')cal.sel=b.dataset.id;
- if(a==='here'){S.att[b.dataset.id]='a';addXp(10)}
+ if(a==='att'){const r=U[b.dataset.id];if(!r)return;const s=r.s=dflt(r.s),d=cal.sel,v=b.dataset.v,p=s.att[d];if(p===v)return;
+  s.att[d]=v;if(v==='a'&&p!=='a'){s.xp+=10;s.log={...s.log};s.log[TODAY]=(s.log[TODAY]||0)+10;toast(`${nm(r)}: пришёл, +10 XP`)}else if(v!=='a'&&p==='a')s.xp=Math.max(0,s.xp-10);
+  putS(b.dataset.id)}
  if(a==='mk'){S.mk[b.dataset.id]=cal.sel;addXp(20)}
  if(a==='goal'){S.goals=S.goals.includes(id)?S.goals.filter(x=>x!==id):[...S.goals,id];save()}
  if(a==='grp')tv.g=b.dataset.id;
