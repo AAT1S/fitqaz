@@ -1,9 +1,14 @@
 /* Если в html забыли подключить config.js — подгружаем его сами */
 if(typeof window.FITQAZ_DB_URL==='undefined'){try{const x=new XMLHttpRequest();x.open('GET','config.js?'+Date.now(),false);x.send();if(x.status===200)(0,eval)(x.responseText)}catch(e){}}
 /* Хранилище аккаунтов + вход/регистрация. Если в config.js указан Firebase — данные общие для всех устройств. */
+/* Показываем ошибку на экране, если страница не отрисовалась */
+if(window.addEventListener){const showErr=m=>{const a=document.getElementById('app');if(a&&!a.innerHTML.trim())a.innerHTML='<div class="card"><h2>Ошибка загрузки</h2><p class="err" style="margin-top:8px">'+String(m).replace(/</g,'&lt;')+'</p><small>Сделайте скриншот этого экрана</small></div>'};
+ window.addEventListener('error',e=>showErr(e.message+' ('+(e.filename||'').split('/').pop()+':'+e.lineno+')'));
+ window.addEventListener('unhandledrejection',e=>showErr((e.reason&&e.reason.message)||e.reason))}
 const UK='fitqaz_users',SK='fitqaz_session',DBURL=(window.FITQAZ_DB_URL||'').replace(/\/$/,'');
-const UNIS=['СИБ-25-7','СБ-25-4','СИБ-25-4','СИБ-25-3','SATB','DS-25-3','СБ-25-1','Преподователь'];
-let U={};const touched={};const NET={s:DBURL?'wait':'local',m:''};
+const UNIS=['KSTU','Университет Астана','КазНУ','ЕНУ им. Л.Н. Гумилева','КБТУ','SATB','КазНПУ','МУИТ','Другой вуз'];
+let U={},G={};const touched={};
+const normG=g=>{const o={};if(g&&typeof g==='object')for(const[k,v]of Object.entries(g)){if(v==null)continue;o[k]=typeof v==='string'?v:(v.name||String(k))}return o};const NET={s:DBURL?'wait':'local',m:''};
 const netText=()=>({local:'⚪ Локальный режим: данные только на этом устройстве',ok:'🟢 Онлайн: общая база',wait:'🟡 Подключение…',err:'🔴 '+NET.m})[NET.s];
 const netErr=e=>{NET.s='err';NET.m=e.message==='Failed to fetch'?'Нет связи с базой: проверьте адрес в config.js и интернет':e.message};
 const enc=k=>[...k].map(c=>/[a-z0-9_]/.test(c)?c:'-'+c.charCodeAt(0).toString(36)+'-').join('');
@@ -15,18 +20,21 @@ async function hash(pw,salt){
   const b=await crypto.subtle.deriveBits({name:'PBKDF2',salt:new TextEncoder().encode(salt),iterations:100000,hash:'SHA-256'},k,256);
   return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
  let h=5381;for(const c of salt+pw)h=((h*33)^c.charCodeAt(0))>>>0;return 'w'+h}
-async function loadUsers(){let raw={};
- try{if(DBURL){const r=await fetch(DBURL+'/fitqaz/users.json');
+async function loadUsers(){let raw={},gr=null;
+ try{if(DBURL){const r=await fetch(DBURL+'/fitqaz.json');
   if(!r.ok)throw new Error(r.status===401||r.status===403?'Нет доступа к базе: во вкладке Rules вставьте правила и нажмите «Опубликовать»':r.status===404?'Неверный адрес базы в config.js':'Ошибка базы '+r.status);
-  raw=(await r.json())||{};NET.s='ok'}else raw=JSON.parse(localStorage.getItem(UK))||{}}catch(e){if(DBURL)netErr(e)}
+  const all=(await r.json())||{};raw=all.users||{};gr=all.groups;NET.s='ok'}else{raw=JSON.parse(localStorage.getItem(UK))||{};gr=JSON.parse(localStorage.getItem('fitqaz_groups')||'null')}G=normG(gr)}catch(e){if(DBURL)netErr(e)}
  const n={};for(const[k,r]of Object.entries(raw))if(r){r.k=r.k||k;n[r.k]=r}return n}
 async function refresh(){const n=await loadUsers();for(const k in n)if(!touched[k]||Date.now()-touched[k]>4000)U[k]=n[k]}
 function putUser(k){touched[k]=Date.now();U[k].k=k;
  if(DBURL)fetch(`${DBURL}/fitqaz/users/${enc(k)}.json`,{method:'PUT',body:JSON.stringify(U[k])}).then(r=>{if(!r.ok)netErr(new Error('Не удалось сохранить в базу (код '+r.status+')'))}).catch(netErr);
  else localStorage.setItem(UK,JSON.stringify(U))}
+function putS(k){touched[k]=Date.now();
+ if(DBURL)fetch(`${DBURL}/fitqaz/users/${enc(k)}/s.json`,{method:'PUT',body:JSON.stringify(U[k].s||{})}).then(r=>{if(!r.ok)netErr(new Error('Не удалось сохранить в базу (код '+r.status+')'))}).catch(netErr);
+ else localStorage.setItem(UK,JSON.stringify(U))}
 const DEMO=[
- {k:'student',name:'student',fio:'Алимжан',role:'student',uni:'СИБ-25-7',pw:'student123',s:{xp:0}},
- {k:'teacher',name:'teacher',fio:'Ерлан',role:'teacher',uni:'Преподователь',pw:'teacher123'}];
+ {k:'student',name:'student',fio:'Алимжан',role:'student',uni:'KSTU',pw:'student123',s:{xp:0}},
+ {k:'teacher',name:'teacher',fio:'Ерлан',role:'teacher',uni:'KSTU',pw:'teacher123'}];
 async function seed(){for(const d of DEMO){
  if(!U[d.k]){const{pw,...r}=d,salt=newSalt();U[d.k]={...r,salt,hash:await hash(pw,salt),v:2,created:localISO()};putUser(d.k)}
  else if(U[d.k].fio!==d.fio){U[d.k].fio=d.fio;putUser(d.k)}}}
