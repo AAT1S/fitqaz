@@ -6,13 +6,13 @@ if(window.addEventListener){const showErr=m=>{const a=document.getElementById('a
  window.addEventListener('error',e=>showErr(e.message+' ('+(e.filename||'').split('/').pop()+':'+e.lineno+')'));
  window.addEventListener('unhandledrejection',e=>showErr((e.reason&&e.reason.message)||e.reason))}
 const UK='fitqaz_users',SK='fitqaz_session',DBURL=(window.FITQAZ_DB_URL||'').replace(/\/$/,'');
-const UNIS=['KSTU','Университет Астана','КазНУ','ЕНУ им. Л.Н. Гумилева','КБТУ','SATB','КазНПУ','МУИТ','Другой вуз'];
 let U={},G={};const touched={};
 const clean=x=>String(x).replace(/["<>]/g,'').trim();
-const normG=g=>{const o={};if(typeof g==='string'){g.split(/[,;\n]/).map(clean).filter(Boolean).forEach(x=>o[x]=x);return o}if(g&&typeof g==='object')for(const[k,v]of Object.entries(g)){if(v==null)continue;o[k]=typeof v==='string'?v:(v.name||String(k))}return o};const NET={s:DBURL?'wait':'local',m:''};
+const normG=g=>{const o={};if(typeof g==='string'){g.split(/[,;\n]/).map(clean).filter(x=>x.length>1).forEach(x=>o[x]=x);return o}if(g&&typeof g==='object')for(const[k,v]of Object.entries(g)){if(v==null)continue;o[k]=typeof v==='string'?v:(v.name||String(k))}return o};const NET={s:DBURL?'wait':'local',m:''};
 const netText=()=>({local:'⚪ Локальный режим: данные только на этом устройстве',ok:'🟢 Онлайн: общая база',wait:'🟡 Подключение…',err:'🔴 '+NET.m})[NET.s];
 const netErr=e=>{NET.s='err';NET.m=e.message==='Failed to fetch'?'Нет связи с базой: проверьте адрес в config.js и интернет':e.message};
-const enc=k=>[...k].map(c=>/[a-z0-9_]/.test(c)?c:'-'+c.charCodeAt(0).toString(36)+'-').join('');
+const enc=k=>String(k).replace(/[.$#\[\]\/]/g,'_');
+const upath=k=>`${DBURL}/fitqaz/users/${encodeURIComponent(enc(k))}`;
 const curKey=()=>localStorage.getItem(SK);
 const localISO=()=>new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
 const newSalt=()=>[...crypto.getRandomValues(new Uint8Array(12))].map(x=>x.toString(16).padStart(2,'0')).join('');
@@ -24,18 +24,26 @@ async function hash(pw,salt){
 async function loadUsers(){let raw={},gr=null;
  try{if(DBURL){const r=await fetch(DBURL+'/fitqaz.json');
   if(!r.ok)throw new Error(r.status===401||r.status===403?'Нет доступа к базе: во вкладке Rules вставьте правила и нажмите «Опубликовать»':r.status===404?'Неверный адрес базы в config.js':'Ошибка базы '+r.status);
-  const all=(await r.json())||{};raw=all.users||{};gr=all.groups;NET.s='ok'}else{raw=JSON.parse(localStorage.getItem(UK))||{};gr=JSON.parse(localStorage.getItem('fitqaz_groups')||'null')}G=normG(gr)}catch(e){if(DBURL)netErr(e)}
- const n={};for(const[k,r]of Object.entries(raw))if(r&&typeof r==='object'){r.k=r.k||k;n[r.k]=r}return n}
+  const all=(await r.json())||{};raw=all.users||{};gr=all.groups;NET.s='ok'}else{raw=JSON.parse(localStorage.getItem(UK))||{};gr=JSON.parse(localStorage.getItem('fitqaz_groups')||'null')}G=normG(gr);if(!Object.keys(G).length)G={'СИБ-25-7':'СИБ-25-7'}}catch(e){if(DBURL)netErr(e)}
+ const n={},mig=[];
+ for(const[k,r]of Object.entries(raw))if(r&&typeof r==='object'){r.k=r.k||k;
+  if(DBURL&&k!==enc(r.k)){mig.push([k,r]);if(raw[enc(r.k)])continue}
+  n[r.k]=r}
+ /* переносим старые записи с «непонятными» ключами на читаемые */
+ for(const[k,r]of mig){const del=()=>fetch(`${DBURL}/fitqaz/users/${encodeURIComponent(k)}.json`,{method:'DELETE'}).catch(()=>{});
+  const ex=raw[enc(r.k)];
+  if(!ex||!ex.hash)fetch(upath(r.k)+'.json',{method:'PUT',body:JSON.stringify(r)}).then(del).catch(()=>{});else del()}
+ return n}
 async function refresh(){const n=await loadUsers();for(const k in n)if(!touched[k]||Date.now()-touched[k]>4000)U[k]=n[k]}
 function putUser(k){touched[k]=Date.now();U[k].k=k;
- if(DBURL)fetch(`${DBURL}/fitqaz/users/${enc(k)}.json`,{method:'PUT',body:JSON.stringify(U[k])}).then(r=>{if(!r.ok)netErr(new Error('Не удалось сохранить в базу (код '+r.status+')'))}).catch(netErr);
+ if(DBURL)fetch(upath(k)+'.json',{method:'PUT',body:JSON.stringify(U[k])}).then(r=>{if(!r.ok)netErr(new Error('Не удалось сохранить в базу (код '+r.status+')'))}).catch(netErr);
  else localStorage.setItem(UK,JSON.stringify(U))}
 function putS(k){touched[k]=Date.now();
- if(DBURL)fetch(`${DBURL}/fitqaz/users/${enc(k)}/s.json`,{method:'PUT',body:JSON.stringify(U[k].s||{})}).then(r=>{if(!r.ok)netErr(new Error('Не удалось сохранить в базу (код '+r.status+')'))}).catch(netErr);
+ if(DBURL)fetch(upath(k)+'/s.json',{method:'PUT',body:JSON.stringify(U[k].s||{})}).then(r=>{if(!r.ok)netErr(new Error('Не удалось сохранить в базу (код '+r.status+')'))}).catch(netErr);
  else localStorage.setItem(UK,JSON.stringify(U))}
 const DEMO=[
- {k:'student',name:'student',fio:'Алимжан',role:'student',uni:'KSTU',pw:'student123',s:{xp:0}},
- {k:'teacher',name:'teacher',fio:'Ерлан',role:'teacher',uni:'KSTU',pw:'teacher123'}];
+ {k:'student',name:'student',fio:'Алимжан',role:'student',pw:'student123',s:{xp:0}},
+ {k:'teacher',name:'teacher',fio:'Ерлан',role:'teacher',pw:'teacher123'}];
 async function seed(){for(const d of DEMO){
  if(!U[d.k]){const{pw,...r}=d,salt=newSalt();U[d.k]={...r,salt,hash:await hash(pw,salt),v:2,created:localISO()};putUser(d.k)}
  else if(U[d.k].fio!==d.fio){U[d.k].fio=d.fio;putUser(d.k)}}}
@@ -51,8 +59,8 @@ if(document.body.dataset.page==='auth')READY.then(()=>{
    <button class="btn big" data-m="reg">Я новый пользователь — регистрация</button>
    <button class="btn big ghost" data-m="login">У меня уже есть аккаунт — войти</button></div>`,
   reg:()=>`${logo}<div class="card"><h2 style="margin-bottom:12px">Регистрация студента</h2><form id="f">
-   ${fld('n','Имя (например, Асылхан Б.)','text','username')}
-   <select id="u">${UNIS.map(x=>`<option>${x}</option>`).join('')}</select>
+   ${fld('n','Ваше имя','text','username')}
+   <select id="g">${Object.entries(G).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select>
    ${fld('p','Пароль (от 6 символов)','password','new-password')}${fld('p2','Повторите пароль','password','new-password')}
    <div class="err" id="er"></div><button class="btn big">Создать аккаунт</button></form></div>
    <button class="lnk" data-m="login">Уже есть аккаунт? Войти</button><button class="lnk" data-m="choose">‹ Назад</button>`,
@@ -75,7 +83,7 @@ if(document.body.dataset.page==='auth')READY.then(()=>{
    if(U[k])return fail('Такое имя уже занято — выберите другое или войдите');
    if(pw.length<6)return fail('Пароль: минимум 6 символов');
    if(pw!==v('p2'))return fail('Пароли не совпадают');
-   const salt=newSalt();U[k]={k,name,uni:v('u'),role:'student',salt,hash:await hash(pw,salt),s:{xp:0},v:2,created:localISO()};putUser(k);
+   const salt=newSalt();U[k]={k,name,group:v('g'),role:'student',salt,hash:await hash(pw,salt),s:{xp:0},v:2,created:localISO()};putUser(k);
   }else{const r=U[k];if(!r||await hash(pw,r.salt)!==r.hash)return fail('Неверное имя или пароль')}
   localStorage.setItem(SK,k);location.replace('index.html')});
  draw();
