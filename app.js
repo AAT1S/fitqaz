@@ -12,7 +12,7 @@ const DB={
   {id:2,n:'Посетить 3 занятия',xp:600,max:3,u:'зан.',step:1},
   {id:3,n:'100 приседаний',xp:400,max:100,u:'',step:25},
   {id:4,n:'Пройти 50 000 шагов',xp:700,max:50,u:'тыс.',step:10}],
- students:
+ students:[],
  norms:[['Бег 100 м',0],['Подтягивания',0],['Пресс (1 мин)',0],['Прыжок в длину',0]]
 };
 const dflt=s=>{const o={xp:0,goals:[],qd:[],...(s||{})};o.qp={...o.qp};o.att={...o.att};o.mk={...o.mk};o.qd=[...o.qd];o.goals=[...o.goals];return o};
@@ -60,6 +60,35 @@ function weekData(){const r=[];for(let i=6;i>=0;i--){const d=new Date();d.setDat
 const qcard=(q,qp,qd,btn)=>{const c=qp[q.id]||0,d=qd.includes(q.id);return `<div class="card"><div class="row"><b>${q.n}</b><small>+${q.xp} XP</small></div><i class="bar"><u style="width:${c/q.max*100}%"></u></i>
 <div class="row" style="margin:10px 0 0"><small>${c} / ${q.max} ${q.u}</small>${d?'<span class="btn sm on">Выполнено ✓</span>':btn?`<button class="btn sm" data-a="tq" data-id="${q.id}">Подтвердить +${q.step} ${q.u}</button>`:`<small>⏳ ${c?'В процессе':'Ожидает подтверждения'}</small>`}</div></div>`};
 
+
+/* ===== QAZ Coach — чат с ИИ =====
+   Чтобы подключить ИИ: добавьте в config.js строку  window.FITQAZ_AI_URL='https://ваш-сервер/chat';
+   Сайт отправит POST (JSON): {user:{name,role,group}, messages:[{role:'user'|'assistant', content:'...'}]}
+   Сервер должен вернуть JSON: {reply:'текст ответа'}. Ключ ИИ храните на сервере, а не в этом файле.
+   Либо замените функцию askAI ниже на свою. */
+const CK='fitqaz_chat_'+KEY;
+const hist=()=>{try{return JSON.parse(localStorage.getItem(CK))||[]}catch(e){return[]}};
+const saveHist=h=>{try{localStorage.setItem(CK,JSON.stringify(h.slice(-50)))}catch(e){}};
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
+const bub=m=>`<div class="msg ${m.r}"><div class="bub">${esc(m.t).replace(/\n/g,'<br>')}</div></div>`;
+const HELLO='Привет! Я QAZ Coach — ИИ-тренер FITQAZ. Спрашивайте про тренировки, нагрузку, восстановление и питание.';
+async function askAI(h){
+ const url=window.FITQAZ_AI_URL;
+ if(!url)return 'QAZ Coach пока в разработке: скоро здесь появятся ответы ИИ-тренера. Ваше сообщение сохранено ✅';
+ const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user:{name:nm(USER),role:USER.role||'student',group:gname(USER)},messages:h.map(m=>({role:m.r==='u'?'user':'assistant',content:m.t}))})});
+ if(!r.ok)throw new Error('Ошибка ИИ-сервера, код '+r.status);
+ const d=await r.json();return d.reply||d.text||'Пустой ответ';
+}
+let chatBusy=false;
+const toBottom=()=>{if(window.scrollTo)window.scrollTo(0,document.body.scrollHeight)};
+async function sendChat(text){text=(text||'').trim();if(!text||chatBusy)return;chatBusy=true;
+ const h=hist();h.push({r:'u',t:text});saveHist(h);
+ const c=$('#chat');if(c)c.insertAdjacentHTML('beforeend',bub({r:'u',t:text})+'<div class="msg a" id="typing"><div class="bub typing">печатает…</div></div>');toBottom();
+ let reply;try{reply=await askAI(h)}catch(e){reply='⚠️ '+(e.message==='Failed to fetch'?'Не удалось связаться с ИИ-сервером':e.message)}
+ const t=$('#typing');if(t)t.remove();
+ h.push({r:'a',t:reply});saveHist(h);
+ const c2=$('#chat');if(c2)c2.insertAdjacentHTML('beforeend',bub({r:'a',t:reply}));toBottom();chatBusy=false}
+
 const tv={g:null,s:null};
 const pts=r=>scoreOf(r.s&&r.s.xp);
 const srow=(r,a)=>{const tg=a?'button':'div';return `<${tg} class="sr" ${a?`data-a="stu" data-id="${r.k}"`:''}><span class="av">${nm(r)[0]}</span><div><b>${nm(r)}</b><small>${[gname(r),a?dflt(r.s).qd.length+'/'+DB.quests.length+' заданий':''].filter(Boolean).join(' · ')}</small></div><em>${pts(r)} 🔥${a?' ›':''}</em></${tg}>`};
@@ -84,7 +113,8 @@ home(){const L=lvl();return `
 <div class="grid">${calTile}
 ${tile('progress.html','📊','Успеваемость','Следи за своим прогрессом')}
 ${tile('profile.html','👤','Профиль','Твои данные, цели и достижения')}
-${tile('quests.html','🏆','Еженедельные квесты','Выполняй задания и получай награды')}</div>
+${tile('quests.html','🏆','Еженедельные квесты','Выполняй задания и получай награды')}
+${tile('coach.html','🤖','QAZ Coach','ИИ-тренер: советы по тренировкам, нагрузке и питанию').replace('class="tile"','class="tile wide"')}</div>
 <section class="card"><div class="row"><h2>🏆 Топ студентов</h2><a href="rating.html">Весь рейтинг ›</a></div>${rows(5)}</section>`},
 
 Thome(){return `
@@ -94,7 +124,8 @@ Thome(){return `
 <div class="grid">${calTile}
 ${tile('students.html','🎓','Студенты','Группы и их прогресс')}
 ${tile('students.html','✅','Задания','Подтверждение выполнения')}
-${tile('profile.html','👤','Профиль','Данные и смена пароля')}</div>
+${tile('profile.html','👤','Профиль','Данные и смена пароля')}
+${tile('coach.html','🤖','QAZ Coach','ИИ-тренер: советы по тренировкам, нагрузке и питанию').replace('class="tile"','class="tile wide"')}</div>
 <section class="card"><div class="row"><h2>🏆 Топ студентов</h2><a href="rating.html">Весь рейтинг ›</a></div>${rows(5)}</section>`},
 
 students(){
@@ -136,21 +167,26 @@ Tprofile(){return head('Профиль')+`
 <div class="card"><small>Групп: ${Object.keys(G).length} · Студентов в группах: ${Object.keys(G).reduce((a,g)=>a+studentsOf(g).length,0)}</small></div>
 <div class="stack"><button class="btn" data-a="pwd">🔑 Сменить пароль</button><button class="btn ghost" data-a="logout">Выйти из аккаунта</button></div>`},
 
+coach(){const h=hist();return head('QAZ Coach')+`<div id="chat" class="chat">${(h.length?h:[{r:'a',t:HELLO}]).map(bub).join('')}</div>
+<div class="chips">${['Составь план тренировки','Как улучшить бег на 100 м?','Что съесть перед тренировкой?'].map(t=>`<button class="chip" data-a="chip" data-t="${t}">${t}</button>`).join('')}</div>
+<form id="cf" class="cbar"><input id="ci" placeholder="Напишите вопрос…" autocomplete="off"><button class="btn">➤</button></form>`},
+
 quests(){return head('Квесты')+`<p class="muted" style="margin:-6px 0 12px">Задания подтверждает преподаватель — баллы начислятся сразу после подтверждения.</p>`+DB.quests.map(q=>qcard(q,S.qp,S.qd,0)).join('')},
 rating(){return head('Рейтинг')+`<section class="card">${rows(20)}</section>`}
 };
 
-const NAV=[['index','Главная','🏠','home'],['calendar','Календарь','📅','calendar'],['progress','Успеваемость','📊','progress'],['profile','Профиль','👤','profile']];
-const NAVT=[['index','Главная','🏠','home'],['calendar','Календарь','📅','calendar'],['students','Студенты','🎓','students'],['profile','Профиль','👤','profile']];
+const NAV=[['index','Главная','🏠','home'],['calendar','Календарь','📅','calendar'],['progress','Успеваемость','📊','progress'],['profile','Профиль','👤','profile'],['coach','QAZ Coach','🤖','coach']];
+const NAVT=[['index','Главная','🏠','home'],['calendar','Календарь','📅','calendar'],['students','Студенты','🎓','students'],['profile','Профиль','👤','profile'],['coach','QAZ Coach','🤖','coach']];
 let lastSig='';const sig=()=>JSON.stringify([U,G]);
 function render(){const fn=(T&&P['T'+page])||P[page];
  if(!fn){location.replace('index.html');return}
  $('#app').innerHTML=fn()+`<div id="net" class="net ${NET.s}">${netText()}</div><nav>${(T?NAVT:NAV).map(n=>`<a href="${n[0]}.html" class="${n[3]===page?'on':''}"><i>${n[2]}</i>${n[1]}</a>`).join('')}</nav>`;
- rankFx();lastSig=sig()}
+ rankFx();lastSig=sig();if(page==='coach')toBottom()}
 
 async function sync(){await refresh();const nb=$('#net');if(nb){nb.className='net '+NET.s;nb.textContent=netText()}const m=U[KEY];if(!m||document.querySelector('.modal')||sig()===lastSig)return;
  const old=S.xp;USER=m;S=dflt(m.s);
  if(!T&&S.xp>old)toast('+'+(S.xp-old)+' XP — подтвердил преподаватель 🔥');
+ if(page==='coach'){lastSig=sig();return}
  render()}
 setInterval(sync,2000);
 
@@ -173,8 +209,10 @@ function pwdModal(){const m=document.createElement('div');m.className='modal';
   if(v('p1')===v('p0'))return er('Новый пароль совпадает со старым');
   r.salt=newSalt();r.hash=await hash(v('p1'),r.salt);putUser(KEY);m.remove();toast('Пароль изменён ✓')}}
 
+document.addEventListener('submit',e=>{if(!e.target||e.target.id!=='cf')return;e.preventDefault();const i=$('#ci');if(!i)return;const t=i.value;i.value='';sendChat(t)});
 document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a,id=+b.dataset.id;
  if(a==='timer')return timer();
+ if(a==='chip'){sendChat(b.dataset.t);return}
  if(a==='pwd')return pwdModal();
  if(a==='cm')cal.d=new Date(cal.d.getFullYear(),cal.d.getMonth()+id,1);
  if(a==='day')cal.sel=b.dataset.id;
