@@ -1,3 +1,8 @@
+/* Настройки оформления (тема, размер текста, анимации) — хранятся на устройстве */
+function applyPrefs(){const r=document.documentElement;if(!r)return;const g=k=>{try{return localStorage.getItem('fitqaz_'+k)}catch(e){return null}};
+ r.dataset.theme=g('theme')||'dark';r.dataset.size=g('size')||'normal';r.dataset.anim=g('anim')||'on'}
+function setPref(k,v){try{localStorage.setItem('fitqaz_'+k,v)}catch(e){}applyPrefs()}
+applyPrefs();
 /* Если в html забыли подключить config.js — подгружаем его сами */
 if(typeof window.FITQAZ_DB_URL==='undefined'){try{const x=new XMLHttpRequest();x.open('GET','config.js?'+Date.now(),false);x.send();if(x.status===200)(0,eval)(x.responseText)}catch(e){}}
 /* Хранилище аккаунтов + вход/регистрация. Если в config.js указан Firebase — данные общие для всех устройств. */
@@ -6,9 +11,10 @@ if(window.addEventListener){const showErr=m=>{const a=document.getElementById('a
  window.addEventListener('error',e=>showErr(e.message+' ('+(e.filename||'').split('/').pop()+':'+e.lineno+')'));
  window.addEventListener('unhandledrejection',e=>showErr((e.reason&&e.reason.message)||e.reason))}
 const UK='fitqaz_users',SK='fitqaz_session',DBURL=(window.FITQAZ_DB_URL||'').replace(/\/$/,'');
-let U={},G={};const touched={};
+let U={},G={},SCH={};const touched={};
 const clean=x=>String(x).replace(/["<>]/g,'').trim();
-const normG=g=>{const o={};if(typeof g==='string'){g.split(/[,;\n]/).map(clean).filter(x=>x.length>1).forEach(x=>o[x]=x);return o}if(g&&typeof g==='object')for(const[k,v]of Object.entries(g)){if(v==null)continue;o[k]=typeof v==='string'?v:(v.name||String(k))}return o};const NET={s:DBURL?'wait':'local',m:''};
+const normG=g=>{const o={};if(typeof g==='string'){g.split(/[,;\n]/).map(clean).filter(x=>x.length>1).forEach(x=>o[x]=x);return o}if(g&&typeof g==='object')for(const[k,v]of Object.entries(g)){if(v==null)continue;o[k]=typeof v==='string'?v:(v.name||String(k))}return o};const normSch=s=>{const o={};if(typeof s==='string'){s.split(/[;\n]/).forEach(e=>{const i=e.indexOf(':');if(i>0)o[clean(e.slice(0,i))]=e.slice(i+1).trim()})}else if(s&&typeof s==='object'){for(const[k,v]of Object.entries(s))if(typeof v==='string')o[k]=v}return o};
+const NET={s:DBURL?'wait':'local',m:''};
 const netText=()=>({local:'⚪ Локальный режим: данные только на этом устройстве',ok:'🟢 Онлайн: общая база',wait:'🟡 Подключение…',err:'🔴 '+NET.m})[NET.s];
 const netErr=e=>{NET.s='err';NET.m=e.message==='Failed to fetch'?'Нет связи с базой: проверьте адрес в config.js и интернет':e.message};
 const enc=k=>String(k).replace(/[.$#\[\]\/]/g,'_');
@@ -21,10 +27,10 @@ async function hash(pw,salt){
   const b=await crypto.subtle.deriveBits({name:'PBKDF2',salt:new TextEncoder().encode(salt),iterations:100000,hash:'SHA-256'},k,256);
   return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
  let h=5381;for(const c of salt+pw)h=((h*33)^c.charCodeAt(0))>>>0;return 'w'+h}
-async function loadUsers(){let raw={},gr=null;
+async function loadUsers(){let raw={},gr=null,sc=null;
  try{if(DBURL){const r=await fetch(DBURL+'/fitqaz.json');
   if(!r.ok)throw new Error(r.status===401||r.status===403?'Нет доступа к базе: во вкладке Rules вставьте правила и нажмите «Опубликовать»':r.status===404?'Неверный адрес базы в config.js':'Ошибка базы '+r.status);
-  const all=(await r.json())||{};raw=all.users||{};gr=all.groups;NET.s='ok'}else{raw=JSON.parse(localStorage.getItem(UK))||{};gr=JSON.parse(localStorage.getItem('fitqaz_groups')||'null')}G=normG(gr);if(!Object.keys(G).length)G={'СИБ-25-7':'СИБ-25-7'}}catch(e){if(DBURL)netErr(e)}
+  const all=(await r.json())||{};raw=all.users||{};gr=all.groups;sc=all.schedule;NET.s='ok'}else{raw=JSON.parse(localStorage.getItem(UK))||{};gr=JSON.parse(localStorage.getItem('fitqaz_groups')||'null');sc=JSON.parse(localStorage.getItem('fitqaz_schedule')||'null')}SCH=normSch(sc);G=normG(gr);if(!Object.keys(G).length)G={'СИБ-25-7':'СИБ-25-7'}}catch(e){if(DBURL)netErr(e)}
  const n={},mig=[];
  for(const[k,r]of Object.entries(raw))if(r&&typeof r==='object'){r.k=r.k||k;
   if(DBURL&&k!==enc(r.k)){mig.push([k,r]);if(raw[enc(r.k)])continue}
@@ -74,7 +80,7 @@ if(document.body.dataset.page==='auth')READY.then(()=>{
    <button class="btn sm ghost" data-fill="student">🎓 Студент: student / student123</button>
    <button class="btn sm ghost" data-fill="teacher">👩‍🏫 Преподаватель: teacher / teacher123</button></div></div>
    <button class="lnk" data-m="reg">Нет аккаунта? Регистрация</button><button class="lnk" data-m="choose">‹ Назад</button>`};
- const draw=()=>{app.innerHTML=V[mode]()+`<div id="net" class="net ${NET.s}">${netText()}</div>`;const n=document.getElementById('n');if(n)n.focus()};
+ const draw=()=>{app.innerHTML=V[mode]()+'';const n=document.getElementById('n');if(n)n.focus()};
  const v=id=>document.getElementById(id).value,fail=m=>document.getElementById('er').textContent=m;
  app.addEventListener('click',e=>{const b=e.target.closest('[data-m]'),f=e.target.closest('[data-fill]');
   if(b){mode=b.dataset.m;draw()}
