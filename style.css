@@ -74,3 +74,15 @@ div.sr{cursor:default}.sr div{display:grid}.sr em{font-style:normal;font-weight:
 .gcard div{display:grid;gap:2px}.gcard span{font-size:24px;color:var(--mu)}
 .net{text-align:center;font-size:12px;color:var(--mu);margin-top:14px;padding:0 10px}.net.err{color:#ff6b73}.net.ok{color:#4ade80}
 .mk{display:flex;gap:6px}
+
+.tile.wide{grid-column:1/-1;min-height:auto;grid-template-columns:auto 1fr;align-items:center;column-gap:14px}.tile.wide i{grid-row:span 2}
+nav a{font-size:11px;padding:0 2px}
+.chat{display:grid;gap:10px;padding-bottom:150px}
+.msg{display:flex}.msg.u{justify-content:flex-end}
+.bub{max-width:82%;padding:11px 14px;border-radius:18px;background:var(--card);border:1px solid var(--line);line-height:1.4;word-wrap:break-word}
+.msg.u .bub{background:var(--red);border-color:var(--red);border-bottom-right-radius:6px}.msg.a .bub{border-bottom-left-radius:6px}
+.bub.typing{color:var(--mu);font-style:italic}
+.chips{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(138px + env(safe-area-inset-bottom));width:100%;max-width:480px;display:flex;gap:8px;overflow-x:auto;padding:0 16px}
+.chip{flex:none;background:#1c1c21;color:#fff;border:1px solid var(--line);border-radius:20px;padding:8px 12px;font:13px inherit;cursor:pointer}
+.cbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(70px + env(safe-area-inset-bottom));width:100%;max-width:480px;display:flex;gap:8px;padding:10px 16px;background:var(--bg)}
+.cbar input{flex:1}.cbar .btn{justify-self:auto;padding:0 18px}
