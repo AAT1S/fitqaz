@@ -63,7 +63,12 @@ const qcard=(q,qp,qd,btn)=>{const c=qp[q.id]||0,d=qd.includes(q.id);return `<div
 const tv={g:null,s:null};
 const pts=r=>scoreOf(r.s&&r.s.xp);
 const srow=(r,a)=>{const tg=a?'button':'div';return `<${tg} class="sr" ${a?`data-a="stu" data-id="${r.k}"`:''}><span class="av">${nm(r)[0]}</span><div><b>${nm(r)}</b><small>${[gname(r),a?dflt(r.s).qd.length+'/'+DB.quests.length+' заданий':''].filter(Boolean).join(' · ')}</small></div><em>${pts(r)} 🔥${a?' ›':''}</em></${tg}>`};
-const gKeyOf=r=>{if(r.group==null||r.group==='')return null;const v=String(r.group);for(const k in G)if(k===v||G[k]===v)return k;return null};
+const TR={а:'a',ә:'a',б:'b',в:'v',г:'g',ғ:'g',д:'d',е:'e',ё:'e',ж:'zh',з:'z',и:'i',і:'i',й:'i',к:'k',қ:'k',л:'l',м:'m',н:'n',ң:'n',о:'o',ө:'o',п:'p',р:'r',с:'s',т:'t',у:'u',ұ:'u',ү:'u',ф:'f',х:'h',һ:'h',ц:'c',ч:'ch',ш:'sh',щ:'sh',ы:'y',э:'e',ю:'u',я:'a'};
+const gnorm=x=>[...String(x).toLowerCase()].map(c=>TR[c]!==undefined?TR[c]:c).join('').replace(/[^a-z0-9]/g,'');
+const gKeyOf=r=>{if(r.group==null||r.group==='')return null;const v=String(r.group),nv=gnorm(v);
+ for(const k in G)if(k===v||G[k]===v)return k;
+ for(const k in G)if(gnorm(G[k])===nv||gnorm(k)===nv)return k;return null};
+const unmatched=()=>reals().filter(r=>r.group!=null&&r.group!==''&&!gKeyOf(r));
 const studentsOf=g=>reals().filter(r=>gKeyOf(r)===g).sort((a,b)=>nm(a).localeCompare(nm(b)));
 const gname=r=>{const k=gKeyOf(r);return k?G[k]:(r.group?String(r.group):'')};
 const gcount=g=>studentsOf(g).length;
@@ -96,9 +101,10 @@ students(){
  if(tv.s&&U[tv.s]){const r=U[tv.s],s=dflt(r.s),L=lvl(s.xp);
   return headB(nm(r),'tback')+`<div class="card pf"><span class="av">${nm(r)[0]}</span><h2>${nm(r)}</h2><small>${gname(r)||'без группы'}</small><b style="font-size:28px">${pts(r)} 🔥</b><small>Уровень ${L.l} · ${L.x} / 500 XP</small></div>
 <p class="muted" style="margin:4px 0 10px">Задания студента — подтверждайте выполнение:</p>`+DB.quests.map(q=>qcard(q,s.qp,s.qd,1)).join('')+`<button class="btn ghost" style="width:100%;margin-top:6px" data-a="tres">Сбросить прогресс студента</button>`}
+ if(tv.g==='__none'){const L=unmatched();return headB('Группа не найдена','tback')+(L.length?`<p class="muted" style="margin:-6px 0 12px">Название группы у этих студентов не совпадает ни с одной группой из списка. Исправьте поле group в Firebase.</p><section class="card">${L.map(r=>srow(r,1)).join('')}</section>`:'<div class="card"><small>Таких студентов нет</small></div>')}
  if(tv.g&&G[tv.g]){const g=tv.g,L=studentsOf(g);
   return headB(G[g],'tback')+(L.length?`<section class="card">${L.map(r=>srow(r,1)).join('')}</section>`:'<div class="card"><small>В этой группе пока нет студентов</small></div>')}
- return head('Студенты')+`<p class="muted" style="margin:-6px 0 12px">Выберите группу</p>`+(Object.keys(G).length?'':'<div class="card"><small>Групп пока нет</small></div>')+Object.keys(G).map(g=>`<button class="card gcard" data-a="grp" data-id="${g}"><div><b>${G[g]}</b><small>${plural(gcount(g))}</small></div><span>›</span></button>`).join('')},
+ return head('Студенты')+`<p class="muted" style="margin:-6px 0 12px">Выберите группу</p>`+(Object.keys(G).length?'':'<div class="card"><small>Групп пока нет</small></div>')+Object.keys(G).map(g=>`<button class="card gcard" data-a="grp" data-id="${g}"><div><b>${G[g]}</b><small>${plural(gcount(g))}</small></div><span>›</span></button>`).join('')+(unmatched().length?`<button class="card gcard" data-a="grp" data-id="__none"><div><b>⚠️ Группа не найдена</b><small>${plural(unmatched().length)}</small></div><span>›</span></button>`:'')},
 
 calendar(){const y=cal.d.getFullYear(),m=cal.d.getMonth(),off=(new Date(y,m,1).getDay()+6)%7,n=new Date(y,m+1,0).getDate();
 let c='<span></span>'.repeat(off);
