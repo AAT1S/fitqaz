@@ -33,29 +33,31 @@ function addXp(n){S.xp+=n;S.log={...S.log};S.log[TODAY]=(S.log[TODAY]||0)+n;save
 
 const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const TODAY=iso(new Date()),START='2026-09-01',END='2026-12-25';
-const LES={2:['10:00','Футбол','Спортзал №1'],4:['15:30','Плавание','Бассейн'],6:['11:00','Лёгкая атлетика','Стадион']};
 const cal={d:new Date(new Date().getFullYear(),new Date().getMonth(),1),sel:TODAY};
 const fmt=s=>new Date(s+'T00:00:00').toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
-function dayInfo(s){if(s<START||s>END)return null;const w=new Date(s+'T00:00:00').getDay(),l=LES[w];
- if(l){let k='n';const m=S.att[s];
-  if(T)k=s<TODAY?'g':'n';
-  else if(S.mk[s]||m==='a')k='g';
+function dayInfo(s){if(s<START||s>END)return null;const w=new Date(s+'T00:00:00').getDay();
+ if(T){const ls=[];for(const gk in G){const d=schOf(gk)[w];if(d)ls.push({gk,t:d.t,n:d.n})}
+  return ls.length?{k:s<TODAY?'g':'n',ls}:null}
+ const d=myDays()[w];
+ if(d){let k='n';const m=S.att[s];
+  if(S.mk[s]||m==='a')k='g';
   else if(m==='m')k='r';
   else if(s<TODAY){let h=0;for(const ch of s)h=(h*31+ch.charCodeAt(0))%97;k=(h%4)?'g':'r'}
-  return{k,l}}
- return !T&&w===5&&s>=TODAY?{k:'b'}:null}
+  return{k,l:[d.t||'🗓',d.n,gname(USER)]}}
+ return w===5&&s>=TODAY?{k:'b'}:null}
 function each(fn){for(let d=new Date(START+'T00:00:00');iso(d)<TODAY;d.setDate(d.getDate()+1)){const s=iso(d),i=dayInfo(s);if(i&&i.l)fn(s,i)}}
 function stats(){let t=0,a=0;each((s,i)=>{t++;if(i.k==='g')a++});return{t,a,p:t?Math.round(a/t*100):0}}
 function missed(){const r=[];each((s,i)=>{if(i.k==='r')r.push({s,n:i.l[1]})});return r}
 function detail(f,s){
  if(!f)return '<small>В этот день занятий нет</small>';
+ if(T)return f.ls.map(x=>`<div class="ev" style="margin-top:6px"><div><span class="time">${x.t||'🗓'}</span><b>${x.n}</b><small>${G[x.gk]}</small></div></div>${attList(s,x.gk)}`).join('');
  if(f.k==='b'){const m=missed();return `<div class="ev"><div><span class="time">16:00</span><b>Отработка пропусков</b><small>Спортзал №1</small></div></div>`+(m.length?m.map(x=>`<div class="ev" style="margin-top:12px"><small>${x.n}, ${fmt(x.s)}</small><button class="btn sm" data-a="mk" data-id="${x.s}">Отработать</button></div>`).join(''):'<p class="muted" style="margin-top:10px">Пропусков нет, отрабатывать нечего 👍</p>')}
- const st={n:'Предстоит',g:T?'Проведено':S.mk[s]?'Отработано':'Посещено',r:'Пропуск'}[f.k];
- return `<div class="ev"><div><span class="time">${f.l[0]}</span><b>${f.l[1]}</b><small>${f.l[2]} · ${st}</small></div></div>${T?attList(s):''}`}
-const attList=s=>{if(s>TODAY)return '<p class="muted" style="margin-top:12px">Отметка посещаемости будет доступна в день занятия</p>';
- const L=reals().filter(r=>gKeyOf(r)).sort((a,b)=>(gKeyOf(a)+nm(a)).localeCompare(gKeyOf(b)+nm(b)));
- if(!L.length)return '<p class="muted" style="margin-top:12px">Нет студентов в группах</p>';
- return '<div class="day">Отметка посещаемости</div>'+L.map(r=>{const v=((r.s||{}).att||{})[s];return `<div class="ev" style="margin-top:10px"><div><b>${nm(r)}</b><small>${gname(r)}</small></div><span class="mk"><button class="btn sm ${v==='a'?'on':'ghost'}" data-a="att" data-id="${r.k}" data-v="a">Пришёл</button><button class="btn sm ${v==='m'?'':'ghost'}" data-a="att" data-id="${r.k}" data-v="m">Нет</button></span></div>`}).join('')};
+ const st={n:'Предстоит',g:S.mk[s]?'Отработано':'Посещено',r:'Пропуск'}[f.k];
+ return `<div class="ev"><div><span class="time">${f.l[0]}</span><b>${f.l[1]}</b><small>${[f.l[2],st].filter(Boolean).join(' · ')}</small></div></div>`}
+const attList=(s,gk)=>{if(s>TODAY)return '<p class="muted" style="margin:6px 0 12px">Отметка посещаемости будет доступна в день занятия</p>';
+ const L=studentsOf(gk);
+ if(!L.length)return '<p class="muted" style="margin:6px 0 12px">В этой группе пока нет студентов</p>';
+ return '<div class="day" style="margin-top:8px">Отметка посещаемости</div>'+L.map(r=>{const v=((r.s||{}).att||{})[s];return `<div class="ev" style="margin-top:10px"><div><b>${nm(r)}</b></div><span class="mk"><button class="btn sm ${v==='a'?'on':'ghost'}" data-a="att" data-id="${r.k}" data-v="a">Пришёл</button><button class="btn sm ${v==='m'?'':'ghost'}" data-a="att" data-id="${r.k}" data-v="m">Нет</button></span></div>`}).join('')+'<div style="height:10px"></div>'};
 function weekData(){const r=[];for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);r.push([['Вс','Пн','Вт','Ср','Чт','Пт','Сб'][d.getDay()],(S.log||{})[iso(d)]||0])}return r}
 const qcard=(q,qp,qd,btn)=>{const c=qp[q.id]||0,d=qd.includes(q.id);return `<div class="card"><div class="row"><b>${q.n}</b><small>+${q.xp} XP</small></div><i class="bar"><u style="width:${c/q.max*100}%"></u></i>
 <div class="row" style="margin:10px 0 0"><small>${c} / ${q.max} ${q.u}</small>${d?'<span class="btn sm on">Выполнено ✓</span>':btn?`<button class="btn sm" data-a="tq" data-id="${q.id}">Подтвердить +${q.step} ${q.u}</button>`:`<small>⏳ ${c?'В процессе':'Ожидает подтверждения'}</small>`}</div></div>`};
@@ -71,13 +73,42 @@ const hist=()=>{try{return JSON.parse(localStorage.getItem(CK))||[]}catch(e){ret
 const saveHist=h=>{try{localStorage.setItem(CK,JSON.stringify(h.slice(-50)))}catch(e){}};
 const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
 const bub=m=>`<div class="msg ${m.r}"><div class="bub">${esc(m.t).replace(/\n/g,'<br>')}</div></div>`;
+const QS=['Составь план тренировки','Как улучшить бег на 100 м?','Что съесть перед тренировкой?','Как восстановиться после нагрузки?','Сколько воды пить в день?','Упражнения для пресса дома','Как не бросить тренировки?','Как разогреться перед бегом?'];
 const HELLO='Привет! Я QAZ Coach — ИИ-тренер FITQAZ. Спрашивайте про тренировки, нагрузку, восстановление и питание.';
+const SYS='Ты — QAZ Coach, ИИ-тренер приложения FITQAZ для студентов вуза в Казахстане. Отвечай по-русски, коротко и понятно (до 6 предложений), давай безопасные советы по тренировкам, нагрузке, восстановлению и питанию. Не ставь диагнозы и не назначай лекарства: при болях, травмах и хронических заболеваниях советуй обратиться к врачу. Если вопрос не про спорт и здоровый образ жизни, вежливо верни разговор к теме.';
+/* История чата -> формат Gemini (роли чередуются, начинается с user) */
+function toContents(h){const out=[];
+ for(const m of h.slice(-12)){if(/^(⚠️|QAZ Coach пока в разработке)/.test(m.t))continue;
+  const role=m.r==='u'?'user':'model';
+  if(out.length&&out[out.length-1].role===role)out[out.length-1].parts[0].text+='\n'+m.t;else out.push({role,parts:[{text:m.t}]})}
+ while(out.length&&out[0].role!=='user')out.shift();return out}
+/* Firebase AI Logic (Gemini). Настройки — в config.js, см. config.example.js */
+let aiModel=null;
+async function getModel(){
+ if(aiModel)return aiModel;
+ const cfg=window.FITQAZ_FIREBASE,base='https://www.gstatic.com/firebasejs/'+(window.FITQAZ_FIREBASE_SDK||'12.4.0')+'/';
+ let appM,aiM;try{appM=await import(base+'firebase-app.js');aiM=await import(base+'firebase-ai.js')}catch(e){throw new Error('Не удалось загрузить Firebase SDK (проверьте интернет и версию в FITQAZ_FIREBASE_SDK)')}
+ const app=appM.initializeApp(cfg);
+ if(window.FITQAZ_RECAPTCHA_KEY){const ac=await import(base+'firebase-app-check.js');ac.initializeAppCheck(app,{provider:new ac.ReCaptchaEnterpriseProvider(window.FITQAZ_RECAPTCHA_KEY),isTokenAutoRefreshEnabled:true})}
+ const ai=aiM.getAI(app,{backend:new aiM.GoogleAIBackend()});
+ return aiModel=aiM.getGenerativeModel(ai,{model:window.FITQAZ_AI_MODEL||'gemini-3.8-flash',systemInstruction:SYS})}
+function aiErr(e){const m=String(e&&e.message||e);
+ if(/app.?check|appcheck|recaptcha/i.test(m))return 'Ошибка App Check: проверьте FITQAZ_RECAPTCHA_KEY в config.js и что домен сайта добавлен в ключ reCAPTCHA Enterprise. ('+m.slice(0,120)+')';
+ if(/403|permission|api.?key|not.?enabled|disabled/i.test(m))return 'Нет доступа к ИИ: проверьте, что в консоли Firebase включён AI Logic, и данные в FITQAZ_FIREBASE. ('+m.slice(0,120)+')';
+ if(/404|not found|model/i.test(m))return 'Модель не найдена или недоступна. Укажите другую в config.js: window.FITQAZ_AI_MODEL. ('+m.slice(0,120)+')';
+ if(/429|quota|exhausted/i.test(m))return 'Лимит бесплатных запросов к ИИ исчерпан, попробуйте позже.';
+ return m.slice(0,200)}
+/* Куда уходит сообщение: 1) свой сервер (FITQAZ_AI_URL), 2) Firebase AI Logic (FITQAZ_FIREBASE), 3) заглушка */
 async function askAI(h){
  const url=window.FITQAZ_AI_URL;
- if(!url)return 'QAZ Coach пока в разработке: скоро здесь появятся ответы ИИ-тренера. Ваше сообщение сохранено ✅';
- const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user:{name:nm(USER),role:USER.role||'student',group:gname(USER)},messages:h.map(m=>({role:m.r==='u'?'user':'assistant',content:m.t}))})});
- if(!r.ok)throw new Error('Ошибка ИИ-сервера, код '+r.status);
- const d=await r.json();return d.reply||d.text||'Пустой ответ';
+ if(url){
+  const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user:{name:nm(USER),role:USER.role||'student',group:gname(USER)},messages:h.map(m=>({role:m.r==='u'?'user':'assistant',content:m.t}))})});
+  if(!r.ok)throw new Error('Ошибка ИИ-сервера, код '+r.status);
+  const d=await r.json();return d.reply||d.text||'Пустой ответ'}
+ if(window.FITQAZ_FIREBASE){
+  try{const model=await getModel();const res=await model.generateContent({contents:toContents(h)});return res.response.text()||'Пустой ответ'}
+  catch(e){throw new Error(aiErr(e))}}
+ return 'QAZ Coach пока в разработке: скоро здесь появятся ответы ИИ-тренера. Ваше сообщение сохранено ✅';
 }
 let chatBusy=false;
 const toBottom=()=>{if(window.scrollTo)window.scrollTo(0,document.body.scrollHeight)};
@@ -102,6 +133,14 @@ const studentsOf=g=>reals().filter(r=>gKeyOf(r)===g).sort((a,b)=>nm(a).localeCom
 const gname=r=>{const k=gKeyOf(r);return k?G[k]:(r.group?String(r.group):'')};
 const gcount=g=>studentsOf(g).length;
 const plural=n=>n+' '+((n%10===1&&n%100!==11)?'студент':(n%10>=2&&n%10<=4&&(n%100<10||n%100>=20))?'студента':'студентов');
+const DW={пн:1,вт:2,ср:3,чт:4,пт:5,сб:6,вс:0,mo:1,tu:2,we:3,th:4,fr:5,sa:6,su:0};
+/* Расписание из Firebase: "вт 10:00 Футбол, чт 15:30, сб" -> {2:{t,n},4:{t,n},6:{t,n}} */
+function parseDays(str){const out={};String(str).split(/[,\n]/).forEach(tok=>{tok=tok.trim();if(!tok)return;const m=tok.match(/^(\S+)\s*(.*)$/);if(!m)return;
+ const w=DW[m[1].toLowerCase().slice(0,2)];if(w===undefined)return;let rest=m[2],t='';const tm=rest.match(/(\d{1,2}):(\d{2})/);
+ if(tm){t=tm[1].padStart(2,'0')+':'+tm[2];rest=rest.replace(tm[0],'')}out[w]={t,n:rest.trim()||'Физкультура'}});return out}
+const schOf=gk=>{if(!gk)return{};const nk=gnorm(G[gk]),kk=gnorm(gk);for(const k in SCH){const n=gnorm(k);if(n===nk||n===kk)return parseDays(SCH[k])}return{}};
+const myDays=()=>schOf(gKeyOf(USER));
+const schNote=()=>T?(Object.keys(SCH).length?'':'<p class="muted" style="margin-bottom:12px">Расписание групп не задано в базе данных</p>'):(Object.keys(myDays()).length?'':'<p class="muted" style="margin-bottom:12px">Расписание вашей группы пока не задано</p>');
 const tile=(h,i,b,s)=>`<a class="tile" href="${h}"><i>${i}</i><b>${b}</b><small>${s}</small></a>`;
 const calTile=tile('calendar.html','📅','Спортивный календарь','Твои тренировки, события и дедлайны');
 
@@ -109,7 +148,6 @@ const P={
 home(){const L=lvl();return `
 <header class="top"><div><div class="logo">FIT<b>Q</b>AZ</div><p class="muted">Двигайся. Развивайся. Достигай.</p></div>
 <a class="lvl" href="progress.html"><span>Уровень ${L.l}</span><i class="bar"><u style="width:${L.x/5}%"></u></i><small>${L.x} / 500</small></a></header>
-<section class="hero"><h1>Лучше, чем<br>вчера</h1><p>Твоя цель ближе,<br>чем ты думаешь</p><button class="btn" data-a="timer">Начать тренировку</button></section>
 <div class="grid">${calTile}
 ${tile('progress.html','📊','Успеваемость','Следи за своим прогрессом')}
 ${tile('profile.html','👤','Профиль','Твои данные, цели и достижения')}
@@ -120,7 +158,6 @@ ${tile('coach.html','🤖','QAZ Coach','ИИ-тренер: советы по т�
 Thome(){return `
 <header class="top"><div><div class="logo">FIT<b>Q</b>AZ</div><p class="muted">Кабинет преподавателя</p></div>
 <a class="lvl" href="profile.html"><span>${nm(USER)}</span><small>Преподаватель</small></a></header>
-<section class="hero"><h1>Группы и студенты</h1><p>Подтверждай задания студентов<br>и начисляй им баллы</p><a class="btn" href="students.html">Открыть кабинет</a></section>
 <div class="grid">${calTile}
 ${tile('students.html','🎓','Студенты','Группы и их прогресс')}
 ${tile('students.html','✅','Задания','Подтверждение выполнения')}
@@ -144,7 +181,7 @@ const dt=new Date(cal.sel+'T00:00:00').toLocaleDateString('ru-RU',{weekday:'long
 return head('Календарь')+`<div class="card"><div class="row"><button class="back" data-a="cm" data-id="-1">‹</button><h2 class="cap">${cal.d.toLocaleDateString('ru-RU',{month:'long',year:'numeric'})}</h2><button class="back" data-a="cm" data-id="1">›</button></div>
 <div class="cg wk">${['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(x=>`<small>${x}</small>`).join('')}</div><div class="cg">${c}</div>
 <div class="leg"><span><u class="dot n"></u>Предстоит</span>${T?'<span><u class="dot g"></u>Проведено</span>':'<span><u class="dot g"></u>Посещено</span><span><u class="dot r"></u>Пропуск</span><span><u class="dot b"></u>Отработка</span>'}</div></div>
-<div class="card"><div class="day" style="margin-top:0">${dt}</div>${detail(dayInfo(cal.sel),cal.sel)}</div>`},
+${schNote()}<div class="card"><div class="day" style="margin-top:0">${dt}</div>${detail(dayInfo(cal.sel),cal.sel)}</div>`},
 
 progress(){const L=lvl();
 return head('Успеваемость')+`
@@ -160,15 +197,24 @@ return head('Профиль')+`
 <div class="card pf"><span class="av">${nm(USER)[0]}</span><h2>${nm(USER)}</h2><small>${gname(USER)?gname(USER)+' · ':''}${score()} баллов</small></div>
 <div class="card"><h2>Мои цели</h2>${G.map((g,i)=>`<div class="goal ${S.goals.includes(i)?'on':''}" data-a="goal" data-id="${i}"><span>${S.goals.includes(i)?'✓':''}</span>${g}</div>`).join('')}</div>
 <div class="card"><h2 style="margin-bottom:10px">Достижения</h2><div class="badges">${B.map(b=>`<div class="bd ${b[2]?'':'off'}"><i>${b[0]}</i>${b[1]}</div>`).join('')}</div></div>
-<div class="stack"><button class="btn" data-a="pwd">🔑 Сменить пароль</button><button class="btn ghost" data-a="reset">Сбросить прогресс</button><button class="btn ghost" data-a="logout">Выйти из аккаунта</button></div>`},
+<div class="stack"><a class="btn" href="settings.html" style="display:block;text-align:center">⚙️ Настройки</a></div>`},
 
 Tprofile(){return head('Профиль')+`
 <div class="card pf"><span class="av">${nm(USER)[0]}</span><h2>${nm(USER)}</h2><small>Преподаватель</small></div>
 <div class="card"><small>Групп: ${Object.keys(G).length} · Студентов в группах: ${Object.keys(G).reduce((a,g)=>a+studentsOf(g).length,0)}</small></div>
-<div class="stack"><button class="btn" data-a="pwd">🔑 Сменить пароль</button><button class="btn ghost" data-a="logout">Выйти из аккаунта</button></div>`},
+<div class="stack"><a class="btn" href="settings.html" style="display:block;text-align:center">⚙️ Настройки</a></div>`},
+
+settings(){const g=(k,d)=>{try{return localStorage.getItem('fitqaz_'+k)||d}catch(e){return d}},th=g('theme','dark'),sz=g('size','normal'),an=g('anim','on');
+ const seg=(k,v,l,cur)=>`<button class="seg ${cur===v?'on':''}" data-a="set" data-k="${k}" data-v="${v}">${l}</button>`;
+ return head('Настройки')+`
+<div class="card"><h2>Тема</h2><div class="segs">${seg('theme','dark','🌙 Ночная',th)}${seg('theme','light','☀️ Дневная',th)}${seg('theme','auto','🖥 Как на устройстве',th)}</div></div>
+<div class="card"><h2>Размер текста</h2><div class="segs">${seg('size','normal','Обычный',sz)}${seg('size','big','Крупный',sz)}</div></div>
+<div class="card"><h2>Анимации</h2><div class="segs">${seg('anim','on','Включены',an)}${seg('anim','off','Выключены',an)}</div></div>
+<div class="card"><h2>Аккаунт</h2><small>${nm(USER)}${T?' · преподаватель':''}</small></div>
+<div class="stack"><button class="btn" data-a="pwd">🔑 Сменить пароль</button>${T?'':'<button class="btn ghost" data-a="reset">Сбросить прогресс</button>'}<button class="btn ghost" data-a="logout">Выйти из аккаунта</button></div>`},
 
 coach(){const h=hist();return head('QAZ Coach')+`<div id="chat" class="chat">${(h.length?h:[{r:'a',t:HELLO}]).map(bub).join('')}</div>
-<div class="chips">${['Составь план тренировки','Как улучшить бег на 100 м?','Что съесть перед тренировкой?'].map(t=>`<button class="chip" data-a="chip" data-t="${t}">${t}</button>`).join('')}</div>
+<div class="chips"><div class="track">${[...QS,...QS].map(t=>`<button class="chip" data-a="chip" data-t="${t}">${t}</button>`).join('')}</div></div>
 <form id="cf" class="cbar"><input id="ci" placeholder="Напишите вопрос…" autocomplete="off"><button class="btn">➤</button></form>`},
 
 quests(){return head('Квесты')+`<p class="muted" style="margin:-6px 0 12px">Задания подтверждает преподаватель — баллы начислятся сразу после подтверждения.</p>`+DB.quests.map(q=>qcard(q,S.qp,S.qd,0)).join('')},
@@ -180,10 +226,10 @@ const NAVT=[['index','Главная','🏠','home'],['calendar','Календа
 let lastSig='';const sig=()=>JSON.stringify([U,G]);
 function render(){const fn=(T&&P['T'+page])||P[page];
  if(!fn){location.replace('index.html');return}
- $('#app').innerHTML=fn()+`<div id="net" class="net ${NET.s}">${netText()}</div><nav>${(T?NAVT:NAV).map(n=>`<a href="${n[0]}.html" class="${n[3]===page?'on':''}"><i>${n[2]}</i>${n[1]}</a>`).join('')}</nav>`;
+ $('#app').innerHTML=fn()+`<nav>${(T?NAVT:NAV).map(n=>`<a href="${n[0]}.html" class="${n[3]===page?'on':''}"><i>${n[2]}</i>${n[1]}</a>`).join('')}</nav>`;
  rankFx();lastSig=sig();if(page==='coach')toBottom()}
 
-async function sync(){await refresh();const nb=$('#net');if(nb){nb.className='net '+NET.s;nb.textContent=netText()}const m=U[KEY];if(!m||document.querySelector('.modal')||sig()===lastSig)return;
+async function sync(){await refresh();const m=U[KEY];if(!m||document.querySelector('.modal')||sig()===lastSig)return;
  const old=S.xp;USER=m;S=dflt(m.s);
  if(!T&&S.xp>old)toast('+'+(S.xp-old)+' XP — подтвердил преподаватель 🔥');
  if(page==='coach'){lastSig=sig();return}
@@ -214,6 +260,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b
  if(a==='timer')return timer();
  if(a==='chip'){sendChat(b.dataset.t);return}
  if(a==='pwd')return pwdModal();
+ if(a==='set')setPref(b.dataset.k,b.dataset.v);
  if(a==='cm')cal.d=new Date(cal.d.getFullYear(),cal.d.getMonth()+id,1);
  if(a==='day')cal.sel=b.dataset.id;
  if(a==='att'){const r=U[b.dataset.id];if(!r)return;const s=r.s=dflt(r.s),d=cal.sel,v=b.dataset.v,p=s.att[d];if(p===v)return;
