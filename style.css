@@ -86,3 +86,4 @@ nav a{font-size:11px;padding:0 2px}
 .chip{flex:none;background:#1c1c21;color:#fff;border:1px solid var(--line);border-radius:20px;padding:8px 12px;font:13px inherit;cursor:pointer}
 .cbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(70px + env(safe-area-inset-bottom));width:100%;max-width:480px;display:flex;gap:8px;padding:10px 16px;background:var(--bg)}
 .cbar input{flex:1}.cbar .btn{justify-self:auto;padding:0 18px}
+.chips{scrollbar-width:none;-ms-overflow-style:none}.chips::-webkit-scrollbar{display:none;height:0}
