@@ -64,10 +64,7 @@ const qcard=(q,qp,qd,btn)=>{const c=qp[q.id]||0,d=qd.includes(q.id);return `<div
 
 
 /* ===== QAZ Coach — чат с ИИ =====
-   Чтобы подключить ИИ: добавьте в config.js строку  window.FITQAZ_AI_URL='https://ваш-сервер/chat';
-   Сайт отправит POST (JSON): {user:{name,role,group}, messages:[{role:'user'|'assistant', content:'...'}]}
-   Сервер должен вернуть JSON: {reply:'текст ответа'}. Ключ ИИ храните на сервере, а не в этом файле.
-   Либо замените функцию askAI ниже на свою. */
+   Подключение ИИ — в файле ai.js (подробности там). Здесь менять ничего не нужно. */
 const CK='fitqaz_chat_'+KEY;
 const hist=()=>{try{return JSON.parse(localStorage.getItem(CK))||[]}catch(e){return[]}};
 const saveHist=h=>{try{localStorage.setItem(CK,JSON.stringify(h.slice(-50)))}catch(e){}};
@@ -75,41 +72,19 @@ const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 const bub=m=>`<div class="msg ${m.r}"><div class="bub">${esc(m.t).replace(/\n/g,'<br>')}</div></div>`;
 const QS=['Составь план тренировки','Как улучшить бег на 100 м?','Что съесть перед тренировкой?','Как восстановиться после нагрузки?','Сколько воды пить в день?','Упражнения для пресса дома','Как не бросить тренировки?','Как разогреться перед бегом?'];
 const HELLO='Привет! Я QAZ Coach — ИИ-тренер FITQAZ. Спрашивайте про тренировки, нагрузку, восстановление и питание.';
-const SYS='Ты — QAZ Coach, ИИ-тренер приложения FITQAZ для студентов вуза в Казахстане. Отвечай по-русски, коротко и понятно (до 6 предложений), давай безопасные советы по тренировкам, нагрузке, восстановлению и питанию. Не ставь диагнозы и не назначай лекарства: при болях, травмах и хронических заболеваниях советуй обратиться к врачу. Если вопрос не про спорт и здоровый образ жизни, вежливо верни разговор к теме.';
-/* История чата -> формат Gemini (роли чередуются, начинается с user) */
-function toContents(h){const out=[];
+/* История чата -> [{role:'user'|'assistant', content}] (роли чередуются, начинается с user) */
+function cleanMsgs(h){const out=[];
  for(const m of h.slice(-12)){if(/^(Не удалось получить ответ|QAZ Coach пока в разработке)/.test(m.t))continue;
-  const role=m.r==='u'?'user':'model';
-  if(out.length&&out[out.length-1].role===role)out[out.length-1].parts[0].text+='\n'+m.t;else out.push({role,parts:[{text:m.t}]})}
+  const role=m.r==='u'?'user':'assistant';
+  if(out.length&&out[out.length-1].role===role)out[out.length-1].content+='\n'+m.t;else out.push({role,content:m.t})}
  while(out.length&&out[0].role!=='user')out.shift();return out}
-/* Firebase AI Logic (Gemini). Настройки — в config.js, см. config.example.js */
-let aiModel=null;
-async function getModel(){
- if(aiModel)return aiModel;
- const cfg=window.FITQAZ_FIREBASE,base='https://www.gstatic.com/firebasejs/'+(window.FITQAZ_FIREBASE_SDK||'12.4.0')+'/';
- let appM,aiM;try{appM=await import(base+'firebase-app.js');aiM=await import(base+'firebase-ai.js')}catch(e){throw new Error('Не удалось загрузить Firebase SDK (проверьте интернет и версию в FITQAZ_FIREBASE_SDK)')}
- const app=appM.initializeApp(cfg);
- if(window.FITQAZ_RECAPTCHA_KEY){const ac=await import(base+'firebase-app-check.js');ac.initializeAppCheck(app,{provider:new ac.ReCaptchaEnterpriseProvider(window.FITQAZ_RECAPTCHA_KEY),isTokenAutoRefreshEnabled:true})}
- const ai=aiM.getAI(app,{backend:new aiM.GoogleAIBackend()});
- return aiModel=aiM.getGenerativeModel(ai,{model:window.FITQAZ_AI_MODEL||'gemini-3.8-flash',systemInstruction:SYS})}
-function aiErr(e){const m=String(e&&e.message||e);
- if(/app.?check|appcheck|recaptcha/i.test(m))return 'Ошибка App Check: проверьте FITQAZ_RECAPTCHA_KEY в config.js и что домен сайта добавлен в ключ reCAPTCHA Enterprise. ('+m.slice(0,120)+')';
- if(/403|permission|api.?key|not.?enabled|disabled/i.test(m))return 'Нет доступа к ИИ: проверьте, что в консоли Firebase включён AI Logic, и данные в FITQAZ_FIREBASE. ('+m.slice(0,120)+')';
- if(/404|not found|model/i.test(m))return 'Модель не найдена или недоступна. Укажите другую в config.js: window.FITQAZ_AI_MODEL. ('+m.slice(0,120)+')';
- if(/429|quota|exhausted/i.test(m))return 'Лимит бесплатных запросов к ИИ исчерпан, попробуйте позже.';
- return m.slice(0,200)}
-/* Куда уходит сообщение: 1) свой сервер (FITQAZ_AI_URL), 2) Firebase AI Logic (FITQAZ_FIREBASE), 3) заглушка */
+const STUB='QAZ Coach пока в разработке: скоро здесь появятся ответы ИИ-тренера. Ваше сообщение сохранено.';
+/* ЕДИНСТВЕННОЕ место, где чат обращается к ИИ.
+   Сам ИИ подключается в файле ai.js (функция window.FITQAZ_askAI) — в этот файл ничего добавлять не нужно. */
 async function askAI(h){
- const url=window.FITQAZ_AI_URL;
- if(url){
-  const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user:{name:nm(USER),role:USER.role||'student',group:gname(USER)},messages:h.map(m=>({role:m.r==='u'?'user':'assistant',content:m.t}))})});
-  if(!r.ok)throw new Error('Ошибка ИИ-сервера, код '+r.status);
-  const d=await r.json();return d.reply||d.text||'Пустой ответ'}
- if(window.FITQAZ_FIREBASE){
-  try{const model=await getModel();const res=await model.generateContent({contents:toContents(h)});return res.response.text()||'Пустой ответ'}
-  catch(e){throw new Error(aiErr(e))}}
- return 'QAZ Coach пока в разработке: скоро здесь появятся ответы ИИ-тренера. Ваше сообщение сохранено.';
-}
+ if(typeof window.FITQAZ_askAI!=='function')return STUB;
+ const r=await window.FITQAZ_askAI(cleanMsgs(h),{name:nm(USER),role:USER.role||'student',group:gname(USER)});
+ return r?String(r):STUB}
 let chatBusy=false;
 const toBottom=()=>{if(window.scrollTo)window.scrollTo(0,document.body.scrollHeight)};
 async function sendChat(text){text=(text||'').trim();if(!text||chatBusy)return;chatBusy=true;
