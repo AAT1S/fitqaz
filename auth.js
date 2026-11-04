@@ -1,3 +1,5 @@
+/* Подхватываем свежий style.css, даже если браузер держит старый в кеше */
+(function(){const l=document.querySelector&&document.querySelector('link[href^="style.css"]');if(l&&!/[?]v=/.test(l.getAttribute('href')))l.setAttribute('href','style.css?v=8')})();
 /* Настройки оформления (тема, размер текста, анимации) — хранятся на устройстве */
 function applyPrefs(){const r=document.documentElement;if(!r)return;const g=k=>{try{return localStorage.getItem('fitqaz_'+k)}catch(e){return null}};
  r.dataset.theme=g('theme')||'dark';r.dataset.size=g('size')||'normal';r.dataset.anim=g('anim')||'on'}
@@ -33,7 +35,7 @@ const IC={
  clock:'<circle cx="12" cy="12" r="8.3"/><path d="M12 7.6V12l3 2"/>',
  check:'<path d="m5.6 12.6 4 4 8.8-9.2"/>'
 };
-const ic=n=>IC[n]?`<svg class="ic ${n}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]}</svg>`:'';
+const ic=n=>IC[n]?`<svg class="ic ${n}" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]}</svg>`:'';
 /* Если в html забыли подключить config.js — подгружаем его сами */
 if(typeof window.FITQAZ_DB_URL==='undefined'){try{const x=new XMLHttpRequest();x.open('GET','config.js?'+Date.now(),false);x.send();if(x.status===200)(0,eval)(x.responseText)}catch(e){}}
 /* Хранилище аккаунтов + вход/регистрация. Если в config.js указан Firebase — данные общие для всех устройств. */
