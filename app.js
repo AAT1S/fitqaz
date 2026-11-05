@@ -198,11 +198,25 @@ rating(){return head('Рейтинг')+`<section class="card">${rows(20)}</secti
 
 const NAV=[['index','Главная','home','home'],['calendar','Календарь','calendar','calendar'],['progress','Успеваемость','chart','progress'],['profile','Профиль','user','profile'],['coach','QAZ Coach','bot','coach']];
 const NAVT=[['index','Главная','home','home'],['calendar','Календарь','calendar','calendar'],['students','Студенты','cap','students'],['profile','Профиль','user','profile'],['coach','QAZ Coach','bot','coach']];
+/* Красная «капсула» в нижнем меню плавно скользит от прежнего раздела к новому */
+function slideNav(){const nav=$('nav');if(!nav||!nav.querySelectorAll)return;
+ const links=[...nav.querySelectorAll('a')],pill=nav.querySelector('.pill');if(!pill)return;
+ const cur=links.findIndex(a=>a.classList.contains('on'));let prev=-1;
+ try{const v=sessionStorage.getItem('fitqaz_nav');if(v!==null)prev=+v}catch(e){}
+ const pos=i=>{const a=links[i];pill.style.width=a.offsetWidth+'px';pill.style.transform='translateX('+a.offsetLeft+'px)'};
+ if(cur<0)pill.style.opacity='0';
+ else if(prev>=0&&prev!==cur&&links[prev]){
+  pill.style.transition='none';pos(prev);pill.style.opacity='1';links[cur].classList.remove('on');links[prev].classList.add('on');
+  if(pill.getBoundingClientRect)pill.getBoundingClientRect();
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{pill.style.transition='';pos(cur);links[prev].classList.remove('on');links[cur].classList.add('on')}))}
+ else{pill.style.transition='none';pos(cur);pill.style.opacity='1';if(pill.getBoundingClientRect)pill.getBoundingClientRect();pill.style.transition=''}
+ try{sessionStorage.setItem('fitqaz_nav',String(cur))}catch(e){}}
+if(window.addEventListener)window.addEventListener('resize',()=>{const nav=$('nav');if(!nav)return;const a=nav.querySelector('a.on'),p=nav.querySelector('.pill');if(a&&p){p.style.transition='none';p.style.width=a.offsetWidth+'px';p.style.transform='translateX('+a.offsetLeft+'px)'}});
 let lastSig='';const sig=()=>JSON.stringify([U,G]);
 function render(){const fn=(T&&P['T'+page])||P[page];
  if(!fn){location.replace('index.html');return}
- $('#app').innerHTML=fn()+`<nav>${(T?NAVT:NAV).map(n=>`<a href="${n[0]}.html" class="${n[3]===page?'on':''}">${ic(n[2])}<span>${n[1]}</span></a>`).join('')}</nav>`;
- rankFx();lastSig=sig();if(page==='coach')toBottom()}
+ $('#app').innerHTML=fn()+`<nav><span class="pill"></span>${(T?NAVT:NAV).map(n=>`<a href="${n[0]}.html" class="${n[3]===page?'on':''}">${ic(n[2])}<span>${n[1]}</span></a>`).join('')}</nav>`;
+ rankFx();lastSig=sig();slideNav();if(page==='coach')toBottom()}
 
 async function sync(){await refresh();const m=U[KEY];if(!m||document.querySelector('.modal')||sig()===lastSig)return;
  const old=S.xp;USER=m;S=dflt(m.s);
