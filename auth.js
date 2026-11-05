@@ -106,9 +106,9 @@ if(document.body.dataset.page==='auth')READY.then(()=>{
    <div class="err" id="er"></div><button class="btn big">Создать аккаунт</button></form></div>
    <button class="lnk" data-m="login">Уже есть аккаунт? Войти</button><button class="lnk" data-m="choose">${ic('back')}Назад</button>`,
   login:()=>`${logo}<div class="card"><h2 style="margin-bottom:12px">Вход</h2><form id="f">
-   ${fld('n','Имя','text','username')}${fld('p','Пароль','password','current-password')}
-   <div class="err" id="er"></div><button class="btn big">Войти</button></form></div>
-   <button class="lnk" data-m="reg">Нет аккаунта? Регистрация</button><button class="lnk" data-m="choose">${ic('back')}Назад</button>`};
+ ${fld('n','Имя','text','username')}${fld('p','Пароль','password','current-password')}
+ <div class="err" id="er"></div><button class="btn big">Войти</button></form></div>
+ <button class="lnk" data-m="reg">Нет аккаунта? Регистрация</button><button class="lnk" data-m="choose">${ic('back')}Назад</button>`};
  const draw=()=>{app.innerHTML=V[mode]()+'';const n=document.getElementById('n');if(n)n.focus()};
  const v=id=>document.getElementById(id).value,fail=m=>document.getElementById('er').textContent=m;
  app.addEventListener('click',e=>{const b=e.target.closest('[data-m]');
