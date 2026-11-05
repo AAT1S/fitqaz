@@ -110,8 +110,6 @@ if(document.body.dataset.page==='auth')READY.then(()=>{
    ${fld('n','Имя','text','username')}${fld('p','Пароль','password','current-password')}
    <div class="err" id="er"></div><button class="btn big">Войти</button></form>
    <div class="stack" style="margin-top:14px"><small>Демо-аккаунты (нажмите, чтобы подставить):</small>
-   <button class="btn sm ghost" data-fill="student">${ic('cap')}Студент: student / student123</button>
-   <button class="btn sm ghost" data-fill="teacher">${ic('user')}Преподаватель: teacher / teacher123</button></div></div>
    <button class="lnk" data-m="reg">Нет аккаунта? Регистрация</button><button class="lnk" data-m="choose">${ic('back')}Назад</button>`};
  const draw=()=>{app.innerHTML=V[mode]()+'';const n=document.getElementById('n');if(n)n.focus()};
  const v=id=>document.getElementById(id).value,fail=m=>document.getElementById('er').textContent=m;
