@@ -38,8 +38,7 @@ const IC={
 const ic=n=>IC[n]?`<svg class="ic ${n}" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]}</svg>`:'';
 /* Если в html забыли подключить config.js — подгружаем его сами */
 if(typeof window.FITQAZ_DB_URL==='undefined'){try{const x=new XMLHttpRequest();x.open('GET','config.js?'+Date.now(),false);x.send();if(x.status===200)(0,eval)(x.responseText)}catch(e){}}
-/* Хранилище аккаунтов + вход/регистрация. Если в config.js указан Firebase — данные общие для всех устройств. */
-/* Показываем ошибку на экране, если страница не отрисовалась */
+/* Хранилище аккаунтов + вход/регистрация. */
 if(window.addEventListener){const showErr=m=>{const a=document.getElementById('app');if(a&&!a.innerHTML.trim())a.innerHTML='<div class="card"><h2>Ошибка загрузки</h2><p class="err" style="margin-top:8px">'+String(m).replace(/</g,'&lt;')+'</p><small>Сделайте скриншот этого экрана</small></div>'};
  window.addEventListener('error',e=>showErr(e.message+' ('+(e.filename||'').split('/').pop()+':'+e.lineno+')'));
  window.addEventListener('unhandledrejection',e=>showErr((e.reason&&e.reason.message)||e.reason))}
@@ -50,7 +49,7 @@ const normG=g=>{const o={};if(typeof g==='string'){g.split(/[,;\n]/).map(clean).
 const NET={s:DBURL?'wait':'local',m:''};
 const netText=()=>({local:'Локальный режим: данные только на этом устройстве',ok:'Онлайн: общая база',wait:'Подключение…',err:NET.m})[NET.s];
 const netErr=e=>{NET.s='err';NET.m=e.message==='Failed to fetch'?'Нет связи с базой: проверьте адрес в config.js и интернет':e.message};
-const enc=k=>String(k).replace(/[.$#\[\]\/]/g,'_');
+const enc=k=>String(k).replace(/[.$#$$$$\/]/g,'_');
 const upath=k=>`${DBURL}/fitqaz/users/${encodeURIComponent(enc(k))}`;
 const curKey=()=>localStorage.getItem(SK);
 const localISO=()=>new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
@@ -108,13 +107,12 @@ if(document.body.dataset.page==='auth')READY.then(()=>{
    <button class="lnk" data-m="login">Уже есть аккаунт? Войти</button><button class="lnk" data-m="choose">${ic('back')}Назад</button>`,
   login:()=>`${logo}<div class="card"><h2 style="margin-bottom:12px">Вход</h2><form id="f">
    ${fld('n','Имя','text','username')}${fld('p','Пароль','password','current-password')}
-   <div class="err" id="er"></div><button class="btn big">Войти</button></form>
+   <div class="err" id="er"></div><button class="btn big">Войти</button></form></div>
    <button class="lnk" data-m="reg">Нет аккаунта? Регистрация</button><button class="lnk" data-m="choose">${ic('back')}Назад</button>`};
  const draw=()=>{app.innerHTML=V[mode]()+'';const n=document.getElementById('n');if(n)n.focus()};
  const v=id=>document.getElementById(id).value,fail=m=>document.getElementById('er').textContent=m;
- app.addEventListener('click',e=>{const b=e.target.closest('[data-m]'),f=e.target.closest('[data-fill]');
-  if(b){mode=b.dataset.m;draw()}
-  if(f){const d=DEMO.find(x=>x.k===f.dataset.fill);document.getElementById('n').value=d.name;document.getElementById('p').value=d.pw}});
+ app.addEventListener('click',e=>{const b=e.target.closest('[data-m]');
+  if(b){mode=b.dataset.m;draw()}});
  let busy=false;
  app.addEventListener('submit',async e=>{e.preventDefault();if(busy)return;busy=true;
   try{
