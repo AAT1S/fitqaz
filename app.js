@@ -3,9 +3,10 @@ const $=(s,r=document)=>r.querySelector(s);
 const KEY=curKey();let USER=U[KEY];
 if(!USER){location.replace('auth.html');return}
 if(USER.v!==2){U[KEY]=USER={...USER,s:{xp:0},v:2,created:localISO()};putUser(KEY)}
-const T=USER.role==='teacher',nm=r=>r.fio||r.name;
+const T=USER.role==='teacher',AD=USER.role==='admin',nm=r=>r.fio||r.name;
 const fname=(location.pathname.split('/').pop()||'').replace('.html',''),page=(!fname||fname==='index')?'home':fname;
-if(T?['progress','quests'].includes(page):page==='students'){location.replace('index.html');return}
+const OKP=AD?['home','support','settings']:T?['home','calendar','students','profile','coach','rating','settings','support']:['home','calendar','progress','profile','quests','rating','settings','coach','support'];
+if(!OKP.includes(page)){location.replace('index.html');return}
 const DB={
  quests:[
   {id:1,n:'Пробежать 15 км за неделю',xp:800,max:15,u:'км',step:5},
@@ -17,6 +18,7 @@ const DB={
 };
 const dflt=s=>{const o={xp:0,goals:[],qd:[],...(s||{})};o.qp={...o.qp};o.att={...o.att};o.mk={...o.mk};o.qd=[...o.qd];o.goals=[...o.goals];return o};
 let S=dflt(USER.s);
+let UNR=0,ADX={};
 const save=()=>{USER.s=S;U[KEY]=USER;putS(KEY)};
 const lvl=(x=S.xp)=>({l:1+Math.floor(x/500),x:x%500});
 const scoreOf=x=>(x||0),score=()=>scoreOf(S.xp);
@@ -95,6 +97,29 @@ async function sendChat(text){text=(text||'').trim();if(!text||chatBusy)return;c
  h.push({r:'a',t:reply});saveHist(h);
  const c2=$('#chat');if(c2)c2.insertAdjacentHTML('beforeend',bub({r:'a',t:reply}));toBottom();chatBusy=false}
 
+/* ===== Поддержка: окно переписки ===== */
+const SV={k:null,sig:''};
+const fmtT=at=>{const d=new Date(at);return d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})+(iso(d)===TODAY?'':' · '+fmt(iso(d)))};
+const sbub=m=>`<div class="msg ${(AD?m.r==='a':m.r==='u')?'u':'a'}"><div class="bub">${esc(m.t).replace(/\n/g,'<br>')}<small class="ts">${fmtT(m.at)}</small></div></div>`;
+const SUPHELLO='<div class="msg a"><div class="bub">Здравствуйте! Опишите вопрос или проблему — ответ появится здесь.</div></div>';
+const unreadAdmin=()=>Object.values(ADX).filter(x=>x&&x.ua>0).length;
+const supItems=(ix,n,click)=>{const L=Object.values(ix).filter(x=>x&&x.lastAt).sort((a,b)=>b.lastAt-a.lastAt).slice(0,n||999);
+ return L.length?`<section class="card">${L.map(x=>`<${click?'button':'div'} class="sr conv" ${click?`data-a="sopen" data-id="${esc(x.k)}"`:''}><span class="av">${esc((x.name||x.k||'?')[0])}</span><div><b>${esc(x.name||x.k)}</b><small>${x.role==='teacher'?'Преподаватель':'Студент'} · ${esc(x.last||'')}</small></div><em>${x.ua>0?`<span class="cnt">${x.ua}</span>`:''}${click?ic('chev'):''}</em></${click?'button':'div'}>`).join('')}</section>`:'<div class="card"><small>Обращений пока нет</small></div>'};
+async function supPoll(){try{if(AD)ADX=(await supIdx())||{};else{const ix=await supIdx(KEY);UNR=(ix&&ix.uu)||0}}catch(e){}}
+async function supTick(){if(page!=='support')return;
+ try{
+  if(AD&&!SV.k){const ix=(await supIdx())||{};ADX=ix;const el=$('#suplist');if(el)el.innerHTML=supItems(ix,0,true);return}
+  const k=AD?SV.k:KEY;if(!k)return;
+  const ms=await supMsgs(k),sg=ms.length+':'+(ms.length?ms[ms.length-1].id:'');
+  if(sg!==SV.sig){SV.sig=sg;const el=$('#supchat');if(el){el.innerHTML=ms.length?ms.map(sbub).join(''):(AD?'<div class="muted">Сообщений пока нет</div>':SUPHELLO);toBottom()}}
+  const ix=await supIdx(k);if(ix&&(AD?ix.ua>0:ix.uu>0))await supRead(k,AD?'a':'u')
+ }catch(e){}}
+async function supSendForm(){const i=$('#si');if(!i)return;const t=i.value.trim();if(!t)return;i.value='';
+ const k=AD?SV.k:KEY;if(!k)return;
+ try{await supSend(k,AD?'a':'u',USER,t)}catch(e){toast('Не отправилось: '+(e.message||e));return}
+ SV.sig='';supTick()}
+setInterval(supTick,2000);
+
 const tv={g:null,s:null};
 const pts=r=>scoreOf(r.s&&r.s.xp);
 const srow=(r,a)=>{const tg=a?'button':'div';return `<${tg} class="sr" ${a?`data-a="stu" data-id="${r.k}"`:''}><span class="av">${nm(r)[0]}</span><div><b>${nm(r)}</b><small>${[gname(r),a?dflt(r.s).qd.length+'/'+DB.quests.length+' заданий':''].filter(Boolean).join(' · ')}</small></div><em>${pts(r)}${ic('flame')}${a?ic('chev'):''}</em></${tg}>`};
@@ -116,7 +141,7 @@ function parseDays(str){const out={};String(str).split(/[,\n]/).forEach(tok=>{to
 const schOf=gk=>{if(!gk)return{};const nk=gnorm(G[gk]),kk=gnorm(gk);for(const k in SCH){const n=gnorm(k);if(n===nk||n===kk)return parseDays(SCH[k])}return{}};
 const myDays=()=>schOf(gKeyOf(USER));
 const schNote=()=>T?(Object.keys(SCH).length?'':'<p class="muted" style="margin-bottom:12px">Расписание групп не задано в базе данных</p>'):(Object.keys(myDays()).length?'':'<p class="muted" style="margin-bottom:12px">Расписание вашей группы пока не задано</p>');
-const tile=(h,i,b,s)=>`<a class="tile t-${i}" href="${h}"><span class="orb">${ic(i)}</span><span class="arr">${ic('chev')}</span><b>${b}</b><small>${s}</small></a>`;
+const tile=(h,i,b,s,n)=>`<a class="tile t-${i}" href="${h}"><span class="orb">${ic(i)}</span><span class="arr">${ic('chev')}</span>${n?`<span class="cnt abs">${n}</span>`:''}<b>${b}</b><small>${s}</small></a>`;
 const calTile=tile('calendar.html','calendar','Спортивный календарь','Твои тренировки, события и дедлайны');
 
 const P={
@@ -127,7 +152,8 @@ home(){const L=lvl();return `
 ${tile('progress.html','chart','Успеваемость','Следи за своим прогрессом')}
 ${tile('profile.html','user','Профиль','Твои данные, цели и достижения')}
 ${tile('quests.html','trophy','Еженедельные квесты','Выполняй задания и получай награды')}
-${tile('coach.html','bot','QAZ Coach','ИИ-тренер: советы по тренировкам, нагрузке и питанию').replace('class="tile"','class="tile wide"')}</div>
+${tile('coach.html','bot','QAZ Coach','ИИ-тренер: тренировки и питание')}
+${tile('support.html','chat','Поддержка',UNR>0?'Есть новый ответ':'Напишите нам, мы поможем',UNR)}</div>
 <section class="card"><div class="row"><h2>Топ студентов</h2><a class="more" href="rating.html">Весь рейтинг${ic('chev')}</a></div>${rows(5)}</section>`},
 
 Thome(){return `
@@ -137,7 +163,8 @@ Thome(){return `
 ${tile('students.html','cap','Студенты','Группы и их прогресс')}
 ${tile('students.html','task','Задания','Подтверждение выполнения')}
 ${tile('profile.html','user','Профиль','Данные и смена пароля')}
-${tile('coach.html','bot','QAZ Coach','ИИ-тренер: советы по тренировкам, нагрузке и питанию').replace('class="tile"','class="tile wide"')}</div>
+${tile('coach.html','bot','QAZ Coach','ИИ-тренер: тренировки и питание')}
+${tile('support.html','chat','Поддержка',UNR>0?'Есть новый ответ':'Напишите нам, мы поможем',UNR)}</div>
 <section class="card"><div class="row"><h2>Топ студентов</h2><a class="more" href="rating.html">Весь рейтинг${ic('chev')}</a></div>${rows(5)}</section>`},
 
 students(){
@@ -179,14 +206,28 @@ Tprofile(){return head('Профиль')+`
 <div class="card"><small>Групп: ${Object.keys(G).length} · Студентов в группах: ${Object.keys(G).reduce((a,g)=>a+studentsOf(g).length,0)}</small></div>
 <div class="stack"><a class="btn" href="settings.html">${ic('gear')}Настройки</a></div>`},
 
+Ahome(){const n=unreadAdmin();return `
+<header class="top"><div><div class="logo">FIT<b>Q</b>AZ</div><p class="muted">Панель администратора</p></div>
+<a class="lvl" href="settings.html"><span>${nm(USER)}</span><small>Администратор</small></a></header>
+<div class="grid">${tile('support.html','chat','Поддержка',n?'Новых обращений: '+n:'Чаты пользователей',n)}
+${tile('settings.html','gear','Настройки','Пароль и оформление')}</div>
+<section class="card"><div class="row"><h2>Последние обращения</h2><a class="more" href="support.html">Все${ic('chev')}</a></div></section>${supItems(ADX,5,false)}`},
+
+support(){return head('Поддержка')+`<div id="supchat" class="chat sup"><div class="muted">Загрузка…</div></div>
+<form id="sf" class="cbar"><input id="si" placeholder="Напишите сообщение…" autocomplete="off" maxlength="500"><button class="btn send">${ic('send')}</button></form>`},
+
+Asupport(){if(SV.k){const x=ADX[SV.k];return headB(x&&x.name?x.name:SV.k,'aback')+`<div id="supchat" class="chat sup"><div class="muted">Загрузка…</div></div>
+<form id="sf" class="cbar"><input id="si" placeholder="Ответить…" autocomplete="off" maxlength="500"><button class="btn send">${ic('send')}</button></form>`}
+ return head('Поддержка')+`<p class="muted" style="margin:-6px 0 12px">Обращения пользователей — нажмите, чтобы открыть чат и ответить</p><div id="suplist">${supItems(ADX,0,true)}</div>`},
+
 settings(){const g=(k,d)=>{try{return localStorage.getItem('fitqaz_'+k)||d}catch(e){return d}},th=g('theme','dark'),sz=g('size','normal'),an=g('anim','on');
  const seg=(k,v,l,cur)=>`<button class="seg ${cur===v?'on':''}" data-a="set" data-k="${k}" data-v="${v}">${l}</button>`;
  return head('Настройки')+`
 <div class="card"><h2>Тема</h2><div class="segs">${seg('theme','dark',ic('moon')+'Ночная',th)}${seg('theme','light',ic('sun')+'Дневная',th)}${seg('theme','auto',ic('monitor')+'Как на устройстве',th)}</div></div>
 <div class="card"><h2>Размер текста</h2><div class="segs">${seg('size','normal','Обычный',sz)}${seg('size','big','Крупный',sz)}</div></div>
 <div class="card"><h2>Анимации</h2><div class="segs">${seg('anim','on','Включены',an)}${seg('anim','off','Выключены',an)}</div></div>
-<div class="card"><h2>Аккаунт</h2><small>${nm(USER)}${T?' · преподаватель':''}</small></div>
-<div class="stack"><button class="btn" data-a="pwd">${ic('key')}Сменить пароль</button>${T?'':`<button class="btn ghost" data-a="reset">${ic('reset')}Сбросить прогресс</button>`}<button class="btn ghost" data-a="logout">${ic('logout')}Выйти из аккаунта</button></div>`},
+<div class="card"><h2>Аккаунт</h2><small>${nm(USER)}${AD?' · администратор':T?' · преподаватель':''}</small></div>
+<div class="stack"><button class="btn" data-a="pwd">${ic('key')}Сменить пароль</button>${AD?'':`<a class="btn ghost" href="support.html">${ic('chat')}Поддержка</a>`}${(T||AD)?'':`<button class="btn ghost" data-a="reset">${ic('reset')}Сбросить прогресс</button>`}<button class="btn ghost" data-a="logout">${ic('logout')}Выйти из аккаунта</button></div>`},
 
 coach(){const h=hist();return head('QAZ Coach')+`<div id="chat" class="chat">${(h.length?h:[{r:'a',t:HELLO}]).map(bub).join('')}</div>
 <div class="chips"><div class="track">${[...QS,...QS].map(t=>`<button class="chip" data-a="chip" data-t="${t}">${t}</button>`).join('')}</div></div>
@@ -197,6 +238,7 @@ rating(){return head('Рейтинг')+`<section class="card">${rows(20)}</secti
 };
 
 const NAV=[['index','Главная','home','home'],['calendar','Календарь','calendar','calendar'],['progress','Успеваемость','chart','progress'],['profile','Профиль','user','profile'],['coach','QAZ Coach','bot','coach']];
+const NAVA=[['index','Главная','home','home'],['support','Поддержка','chat','support'],['settings','Настройки','gear','settings']];
 const NAVT=[['index','Главная','home','home'],['calendar','Календарь','calendar','calendar'],['students','Студенты','cap','students'],['profile','Профиль','user','profile'],['coach','QAZ Coach','bot','coach']];
 /* Красная «капсула» в нижнем меню плавно скользит от прежнего раздела к новому */
 function slideNav(){const nav=$('nav');if(!nav||!nav.querySelectorAll)return;
@@ -212,16 +254,16 @@ function slideNav(){const nav=$('nav');if(!nav||!nav.querySelectorAll)return;
  else{pill.style.transition='none';pos(cur);pill.style.opacity='1';if(pill.getBoundingClientRect)pill.getBoundingClientRect();pill.style.transition=''}
  try{sessionStorage.setItem('fitqaz_nav',String(cur))}catch(e){}}
 if(window.addEventListener)window.addEventListener('resize',()=>{const nav=$('nav');if(!nav)return;const a=nav.querySelector('a.on'),p=nav.querySelector('.pill');if(a&&p){p.style.transition='none';p.style.width=a.offsetWidth+'px';p.style.transform='translateX('+a.offsetLeft+'px)'}});
-let lastSig='';const sig=()=>JSON.stringify([U,G]);
-function render(){const fn=(T&&P['T'+page])||P[page];
+let lastSig='';const sig=()=>JSON.stringify([U,G,UNR,ADX]);
+function render(){const fn=(AD&&P['A'+page])||(T&&P['T'+page])||P[page];
  if(!fn){location.replace('index.html');return}
- $('#app').innerHTML=fn()+`<nav><span class="pill"></span>${(T?NAVT:NAV).map(n=>`<a href="${n[0]}.html" class="${n[3]===page?'on':''}">${ic(n[2])}<span>${n[1]}</span></a>`).join('')}</nav>`;
- rankFx();lastSig=sig();slideNav();if(page==='coach')toBottom()}
+ $('#app').innerHTML=fn()+`<nav><span class="pill"></span>${(AD?NAVA:T?NAVT:NAV).map(n=>`<a href="${n[0]}.html" class="${n[3]===page?'on':''}">${ic(n[2])}<span>${n[1]}</span></a>`).join('')}</nav>`;
+ rankFx();lastSig=sig();slideNav();if(page==='coach')toBottom();if(page==='support')supTick()}
 
-async function sync(){await refresh();const m=U[KEY];if(!m||document.querySelector('.modal')||sig()===lastSig)return;
+async function sync(){await refresh();await supPoll();const m=U[KEY];if(!m||document.querySelector('.modal')||sig()===lastSig)return;
  const old=S.xp;USER=m;S=dflt(m.s);
  if(!T&&S.xp>old)toast('+'+(S.xp-old)+' XP — подтвердил преподаватель');
- if(page==='coach'){lastSig=sig();return}
+ if(page==='coach'||page==='support'){lastSig=sig();return}
  render()}
 setInterval(sync,2000);
 
@@ -244,10 +286,13 @@ function pwdModal(){const m=document.createElement('div');m.className='modal';
   if(v('p1')===v('p0'))return er('Новый пароль совпадает со старым');
   r.salt=newSalt();r.hash=await hash(v('p1'),r.salt);putUser(KEY);m.remove();toast('Пароль изменён')}}
 
-document.addEventListener('submit',e=>{if(!e.target||e.target.id!=='cf')return;e.preventDefault();const i=$('#ci');if(!i)return;const t=i.value;i.value='';sendChat(t)});
+document.addEventListener('submit',e=>{if(!e.target)return;if(e.target.id==='sf'){e.preventDefault();supSendForm();return}
+ if(e.target.id!=='cf')return;e.preventDefault();const i=$('#ci');if(!i)return;const t=i.value;i.value='';sendChat(t)});
 document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a,id=+b.dataset.id;
  if(a==='timer')return timer();
  if(a==='chip'){sendChat(b.dataset.t);return}
+ if(a==='sopen'){SV.k=b.dataset.id;SV.sig=''}
+ if(a==='aback'){SV.k=null;SV.sig=''}
  if(a==='pwd')return pwdModal();
  if(a==='set')setPref(b.dataset.k,b.dataset.v);
  if(a==='cm')cal.d=new Date(cal.d.getFullYear(),cal.d.getMonth()+id,1);
@@ -269,4 +314,5 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b
  if(a==='logout'){localStorage.removeItem(SK);location.replace('auth.html');return}
  render()});
 render();
+supPoll().then(()=>{if(sig()!==lastSig&&page!=='support')render()});
 });
