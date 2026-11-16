@@ -98,7 +98,7 @@ div.sr{cursor:default}.sr div{display:grid}.sr:first-child{border-top:0}.sr em .
 input,select{width:100%;background:var(--field);border:1px solid var(--line);border-radius:18px;padding:15px 17px;color:var(--tx);font-size:16px;font-weight:500;outline:0;transition:border-color .2s,box-shadow .2s}
 input:focus,select:focus{border-color:rgba(255,90,102,.7);box-shadow:0 0 0 4px rgba(255,59,74,.14)}
 select option{background:var(--solid);color:var(--tx)}
-.err{color:#ff7a85;font-size:14px;min-height:18px;font-weight:500}
+.err{color:#ff7a85;font-size:14px;font-weight:500}.err:empty{display:none}
 /* ---------- окна и уведомления ---------- */
 .modal{position:fixed;inset:0;background:rgba(5,5,10,.6);backdrop-filter:blur(6px);display:flex;align-items:flex-end;justify-content:center;z-index:9}
 .sheet{width:100%;max-width:480px;background:var(--solid);border:1px solid var(--line);border-radius:30px 30px 0 0;padding:26px 20px calc(26px + env(safe-area-inset-bottom));display:grid;gap:13px;text-align:center}
@@ -136,4 +136,36 @@ html[data-anim="off"] *{animation:none!important;transition:none!important}
 html[data-anim="off"] .chips{overflow-x:auto;-webkit-mask-image:none;mask-image:none}
 html[data-theme="light"]{--bg:#f3f3f8;--card:rgba(255,255,255,.72);--card2:#fff;--line:rgba(35,35,70,.09);--tx:#16161d;--mu:#6d6d7d;--solid:#fff;--field:#fff;--navbg:rgba(255,255,255,.82);--shadow:0 14px 34px rgba(45,45,90,.12);--glowA:rgba(255,59,74,.11);--glowB:rgba(122,92,255,.09);--sel:rgba(255,59,74,.13);--me:rgba(255,59,74,.1)}
 @media (prefers-color-scheme:light){html[data-theme="auto"]{--bg:#f3f3f8;--card:rgba(255,255,255,.72);--card2:#fff;--line:rgba(35,35,70,.09);--tx:#16161d;--mu:#6d6d7d;--solid:#fff;--field:#fff;--navbg:rgba(255,255,255,.82);--shadow:0 14px 34px rgba(45,45,90,.12);--glowA:rgba(255,59,74,.11);--glowB:rgba(122,92,255,.09);--sel:rgba(255,59,74,.13);--me:rgba(255,59,74,.1)}}
- 
+
+/* ---------- поддержка, бейджи ---------- */
+.t-chat{--c:84,206,196}
+.cnt{min-width:22px;height:22px;padding:0 7px;border-radius:11px;background:linear-gradient(135deg,#ff5663,#f12a3d);color:#fff;font-size:12px;font-weight:800;display:inline-grid;place-items:center;box-shadow:0 0 12px var(--glow)}
+.cnt.abs{position:absolute;right:42px;top:15px}
+.chat.sup{padding-bottom:132px}
+.ts{display:block;margin-top:5px;font-size:11px;opacity:.65;text-align:right;color:inherit}
+.conv small{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* ---------- увеличение кнопок при наведении и нажатии ---------- */
+.seg,.chip,.back,.lnk,.tile{transition:transform .18s cubic-bezier(.3,.9,.3,1),box-shadow .2s,background .2s}
+@media (hover:hover){
+ .btn:hover{transform:translateY(-1px) scale(1.05);box-shadow:0 14px 30px var(--glow)}
+ .btn.ghost:hover{box-shadow:0 10px 22px rgba(0,0,0,.25)}
+ .seg:hover,.chip:hover,.lnk:hover{transform:scale(1.06)}
+ .back:hover{transform:scale(1.1)}
+ .tile:hover{transform:translateY(-3px) scale(1.025)}
+ .gcard:hover,.sr:hover{transform:scale(1.01)}
+}
+.btn:active,.seg:active,.chip:active,.back:active,.lnk:active{transform:scale(.94)}
+.tile:active{transform:scale(.97)}
+
+/* ---------- отработка, редактор расписания ---------- */
+.req{display:grid;gap:10px;padding:13px 0;border-top:1px solid var(--line)}.req:first-of-type{border-top:0}
+.req>div:first-child{display:grid;gap:3px}.req p{font-size:14px;line-height:1.4;font-weight:500}
+.ed{padding:13px 0;border-top:1px solid var(--line);display:grid;gap:10px}.ed:first-of-type{border-top:0}
+.ed .mk{display:flex;gap:8px;flex-wrap:wrap}
+.edrow{display:flex;gap:8px;align-items:center}.edrow input{flex:1;min-width:0;padding:11px 13px;border-radius:15px;font-size:15px}.edrow .btn{flex:none}
+.mkform{margin-top:14px;display:grid;gap:9px}
+.attv{display:grid;gap:4px;margin-top:2px}
+.nd{position:absolute;top:7px;right:calc(50% - 21px);width:9px;height:9px;border-radius:50%;background:#ff4757;box-shadow:0 0 9px #ff4757}
+.btn .cnt{margin-left:8px}
+input[type="date"],input[type="time"]{color-scheme:dark}
+html[data-theme="light"] input[type="date"],html[data-theme="light"] input[type="time"]{color-scheme:light}
