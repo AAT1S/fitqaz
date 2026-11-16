@@ -3,9 +3,9 @@ const $=(s,r=document)=>r.querySelector(s);
 const KEY=curKey();let USER=U[KEY];
 if(!USER){location.replace('auth.html');return}
 if(USER.v!==2){U[KEY]=USER={...USER,s:{xp:0},v:2,created:localISO()};putUser(KEY)}
-const T=USER.role==='teacher',AD=USER.role==='admin',nm=r=>r.fio||r.name;
+const T=USER.role==='teacher',AD=USER.role==='admin',TA=T||AD,nm=r=>r.fio||r.name;
 const fname=(location.pathname.split('/').pop()||'').replace('.html',''),page=(!fname||fname==='index')?'home':fname;
-const OKP=AD?['home','support','settings']:T?['home','calendar','students','profile','coach','rating','settings','support']:['home','calendar','progress','profile','quests','rating','settings','coach','support'];
+const OKP=AD?['home','calendar','support','settings']:T?['home','calendar','students','profile','coach','rating','settings','support']:['home','calendar','progress','profile','quests','rating','settings','coach','support'];
 if(!OKP.includes(page)){location.replace('index.html');return}
 const DB={
  quests:[
@@ -18,7 +18,7 @@ const DB={
 };
 const dflt=s=>{const o={xp:0,goals:[],qd:[],...(s||{})};o.qp={...o.qp};o.att={...o.att};o.mk={...o.mk};o.qd=[...o.qd];o.goals=[...o.goals];return o};
 let S=dflt(USER.s);
-let UNR=0,ADX={};
+let UNR=0,ADX={},MK={},MKA={};
 const save=()=>{USER.s=S;U[KEY]=USER;putS(KEY)};
 const lvl=(x=S.xp)=>({l:1+Math.floor(x/500),x:x%500});
 const scoreOf=x=>(x||0),score=()=>scoreOf(S.xp);
@@ -38,24 +38,56 @@ const TODAY=iso(new Date()),START='2026-09-01',END='2026-12-25';
 const cal={d:new Date(new Date().getFullYear(),new Date().getMonth(),1),sel:TODAY};
 const fmt=s=>new Date(s+'T00:00:00').toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
 function dayInfo(s){if(s<START||s>END)return null;const w=new Date(s+'T00:00:00').getDay();
- if(T){const ls=[];for(const gk in G){const d=schOf(gk)[w];if(d)ls.push({gk,t:d.t,n:d.n})}
-  return ls.length?{k:s<TODAY?'g':'n',ls}:null}
+ if(TA){const ls=[];for(const gk in G){const d=schOf(gk)[w];if(d)ls.push({gk,t:d.t,n:d.n})}
+  return ls.length?{k:s<TODAY?'g':'n',ls}:(hasMk(s)?{k:'b',ls:[]}:null)}
  const d=myDays()[w];
  if(d){let k='n';const m=S.att[s];
   if(S.mk[s]||m==='a')k='g';
   else if(m==='m')k='r';
   else if(s<TODAY){let h=0;for(const ch of s)h=(h*31+ch.charCodeAt(0))%97;k=(h%4)?'g':'r'}
   return{k,l:[d.t||'—',d.n,gname(USER)]}}
- return w===5&&s>=TODAY?{k:'b'}:null}
+ return apprOn(s).length?{k:'b'}:null}
 function each(fn){for(let d=new Date(START+'T00:00:00');iso(d)<TODAY;d.setDate(d.getDate()+1)){const s=iso(d),i=dayInfo(s);if(i&&i.l)fn(s,i)}}
 function stats(){let t=0,a=0;each((s,i)=>{t++;if(i.k==='g')a++});return{t,a,p:t?Math.round(a/t*100):0}}
 function missed(){const r=[];each((s,i)=>{if(i.k==='r')r.push({s,n:i.l[1]})});return r}
+/* --- заявки на отработку (студент) --- */
+const myReqs=()=>Object.entries(MK).map(([id,r])=>({id,...r}));
+const reqFor=d=>myReqs().filter(r=>r.missed===d).sort((a,b)=>b.at-a.at)[0];
+const apprOn=d=>myReqs().filter(r=>r.prop===d&&r.st==='approved');
+const mkForm=s=>{const rq=reqFor(s);
+ if(rq&&rq.st==='pending')return `<p class="muted" style="margin-top:12px">Заявка отправлена преподавателю: отработка ${fmt(rq.prop)}. Ждёт согласования.</p>`;
+ if(rq&&rq.st==='approved')return `<p class="muted" style="margin-top:12px">Согласовано: отработка ${fmt(rq.prop)}. Посещение отметит преподаватель.</p>`;
+ const note=rq?(rq.st==='declined'?'Преподаватель отклонил заявку. Предложите другой день.':'Вы не пришли на отработку. Предложите новый день.'):'Пропустили занятие? Предложите день отработки — преподаватель получит заявку.';
+ return `<div class="mkform"><p class="muted">${note}</p><div class="edrow"><input type="date" id="md" min="${TODAY}" max="${END}"><button class="btn sm" data-a="mkreq" data-d="${s}">Предложить день</button></div></div>`};
+const mkInfo=s=>apprOn(s).map(r=>`<div class="ev" style="margin-top:10px"><div><span class="time">Отработка</span><b>${esc(r.title)}</b><small>за пропуск ${fmt(r.missed)} · согласовано, посещение отметит преподаватель</small></div></div>`).join('');
+/* --- заявки на отработку (преподаватель / админ) --- */
+const allReqs=()=>Object.entries(MKA).flatMap(([sk,o])=>Object.entries(o||{}).map(([id,r])=>({id,sk,...r})));
+const pendReqs=()=>allReqs().filter(r=>r.st==='pending').sort((a,b)=>a.at-b.at);
+const hasMk=s=>allReqs().some(r=>r.prop===s&&['approved','done','noshow'].includes(r.st));
+const wdn=d=>['вс','пн','вт','ср','чт','пт','сб'][new Date(d+'T00:00:00').getDay()];
+const mkCard=()=>{const L=pendReqs();if(!L.length)return '';
+ return `<section class="card"><div class="row"><h2>Заявки на отработку</h2><span class="cnt">${L.length}</span></div>${L.map(r=>`<div class="req"><div><b>${esc(r.sname)}</b><small>${esc(r.group||'')}</small><p>Пропуск: ${esc(r.title)}, ${fmt(r.missed)}. Предлагает отработать ${fmt(r.prop)} (${wdn(r.prop)}).</p></div><div class="mk"><button class="btn sm on" data-a="mkok" data-sk="${esc(r.sk)}" data-id="${r.id}">Согласовать</button><button class="btn sm ghost" data-a="mkno" data-sk="${esc(r.sk)}" data-id="${r.id}">Отклонить</button></div></div>`).join('')}</section>`};
+const mkDay=s=>{const L=allReqs().filter(r=>r.prop===s&&['approved','done','noshow'].includes(r.st));if(!L.length)return '';
+ return '<div class="day" style="margin-top:10px">Отработка</div>'+L.map(r=>`<div class="ev" style="margin-top:10px"><div><b>${esc(r.sname)}</b><small>${esc(r.title)} · пропуск ${fmt(r.missed)}</small></div>${r.st==='approved'?(s>TODAY?'<small>отметка в день отработки</small>':`<span class="mk"><button class="btn sm on" data-a="matt" data-sk="${esc(r.sk)}" data-id="${r.id}" data-v="a">Пришёл</button><button class="btn sm ghost" data-a="matt" data-sk="${esc(r.sk)}" data-id="${r.id}" data-v="m">Нет</button></span>`):`<small>${r.st==='done'?'Пришёл':'Не пришёл'}</small>`}</div>`).join('')};
+/* --- редактор расписания (админ) --- */
+const DN={1:'пн',2:'вт',3:'ср',4:'чт',5:'пт',6:'сб',0:'вс'},DNP={1:'понедельники',2:'вторники',3:'среды',4:'четверги',5:'пятницы',6:'субботы',0:'воскресенья'};
+const serDays=d=>[1,2,3,4,5,6,0].filter(w=>d[w]).map(w=>DN[w]+(d[w].t?' '+d[w].t:'')+(d[w].n&&d[w].n!=='Физкультура'?' '+d[w].n:'')).join(', ');
+const schKey=gk=>{const nk=gnorm(G[gk]),kk=gnorm(gk);for(const k in SCH){const n=gnorm(k);if(n===nk||n===kk)return k}return G[gk]};
+const attView=(s,gk)=>{const L=studentsOf(gk);if(!L.length)return '';return '<div class="attv">'+L.map(r=>{const v=((r.s||{}).att||{})[s];return `<div class="ev"><small>${esc(nm(r))}</small><small>${v==='a'?'пришёл':v==='m'?'не пришёл':'не отмечен'}</small></div>`}).join('')+'</div>'};
+const editor=s=>{const w=new Date(s+'T00:00:00').getDay(),keys=Object.keys(G);
+ if(!keys.length)return '<small>Групп пока нет. Добавьте группы в базе данных.</small>';
+ return `<p class="muted" style="margin:-4px 0 6px">Изменения действуют на все ${DNP[w]} и сразу видны студентам группы.</p>`+keys.map((g,i)=>{const d=schOf(g)[w];
+  return `<div class="ed"><div class="ev"><b>${esc(G[g])}</b><small>${gcount(g)?plural(gcount(g)):'нет студентов'}${d?'':' · занятия нет'}</small></div>
+<div class="edrow"><input type="time" id="et-${i}" value="${d?esc(d.t):''}"><input id="en-${i}" placeholder="Название (Физкультура)" maxlength="40" value="${esc(d&&d.n!=='Физкультура'?d.n:'')}"></div>
+<div class="mk"><button class="btn sm" data-a="schsave" data-g="${esc(g)}" data-i="${i}">${d?'Сохранить':'Добавить занятие'}</button>${d?`<button class="btn sm ghost" data-a="schdel" data-g="${esc(g)}">Удалить</button>`:''}</div>${d&&s<=TODAY?attView(s,g):''}</div>`}).join('')};
 function detail(f,s){
+ if(AD)return editor(s)+mkDay(s);
+ if(T){if(!f||!f.ls.length)return mkDay(s)||'<small>В этот день занятий нет</small>';
+  return f.ls.map(x=>`<div class="ev" style="margin-top:6px"><div><span class="time">${x.t||'—'}</span><b>${x.n}</b><small>${G[x.gk]}</small></div></div>${attList(s,x.gk)}`).join('')+mkDay(s)}
  if(!f)return '<small>В этот день занятий нет</small>';
- if(T)return f.ls.map(x=>`<div class="ev" style="margin-top:6px"><div><span class="time">${x.t||'—'}</span><b>${x.n}</b><small>${G[x.gk]}</small></div></div>${attList(s,x.gk)}`).join('');
- if(f.k==='b'){const m=missed();return `<div class="ev"><div><span class="time">16:00</span><b>Отработка пропусков</b><small>Спортзал №1</small></div></div>`+(m.length?m.map(x=>`<div class="ev" style="margin-top:12px"><small>${x.n}, ${fmt(x.s)}</small><button class="btn sm" data-a="mk" data-id="${x.s}">Отработать</button></div>`).join(''):'<p class="muted" style="margin-top:10px">Пропусков нет, отрабатывать нечего</p>')}
+ if(f.k==='b')return mkInfo(s);
  const st={n:'Предстоит',g:S.mk[s]?'Отработано':'Посещено',r:'Пропуск'}[f.k];
- return `<div class="ev"><div><span class="time">${f.l[0]}</span><b>${f.l[1]}</b><small>${[f.l[2],st].filter(Boolean).join(' · ')}</small></div></div>`}
+ return `<div class="ev"><div><span class="time">${f.l[0]}</span><b>${f.l[1]}</b><small>${[f.l[2],st].filter(Boolean).join(' · ')}</small></div></div>`+(f.k==='r'?mkForm(s):'')+mkInfo(s)}
 const attList=(s,gk)=>{if(s>TODAY)return '<p class="muted" style="margin:6px 0 12px">Отметка посещаемости будет доступна в день занятия</p>';
  const L=studentsOf(gk);
  if(!L.length)return '<p class="muted" style="margin:6px 0 12px">В этой группе пока нет студентов</p>';
@@ -105,7 +137,35 @@ const SUPHELLO='<div class="msg a"><div class="bub">Здравствуйте! О
 const unreadAdmin=()=>Object.values(ADX).filter(x=>x&&x.ua>0).length;
 const supItems=(ix,n,click)=>{const L=Object.values(ix).filter(x=>x&&x.lastAt).sort((a,b)=>b.lastAt-a.lastAt).slice(0,n||999);
  return L.length?`<section class="card">${L.map(x=>`<${click?'button':'div'} class="sr conv" ${click?`data-a="sopen" data-id="${esc(x.k)}"`:''}><span class="av">${esc((x.name||x.k||'?')[0])}</span><div><b>${esc(x.name||x.k)}</b><small>${x.role==='teacher'?'Преподаватель':'Студент'} · ${esc(x.last||'')}</small></div><em>${x.ua>0?`<span class="cnt">${x.ua}</span>`:''}${click?ic('chev'):''}</em></${click?'button':'div'}>`).join('')}</section>`:'<div class="card"><small>Обращений пока нет</small></div>'};
-async function supPoll(){try{if(AD)ADX=(await supIdx())||{};else{const ix=await supIdx(KEY);UNR=(ix&&ix.uu)||0}}catch(e){}}
+async function supPoll(){
+ try{if(AD)ADX=(await supIdx())||{};else{const ix=await supIdx(KEY);UNR=(ix&&ix.uu)||0}}catch(e){}
+ try{if(TA)MKA=await mkAll();else MK=await mkOwn(KEY)}catch(e){}}
+let prevMK=null,prevPend=null;
+function mkNotify(){
+ if(!TA){const cur={};for(const[id,r]of Object.entries(MK))cur[id]=r.st;
+  if(prevMK)for(const id in cur)if(prevMK[id]&&prevMK[id]!==cur[id]){if(cur[id]==='approved')toast('Отработка согласована');else if(cur[id]==='declined')toast('Заявка на отработку отклонена')}
+  prevMK=cur}
+ else{const n=pendReqs().length;if(prevPend!==null&&n>prevPend)toast('Новая заявка на отработку');prevPend=n}}
+async function mkSend(d){const el=$('#md'),prop=el?el.value:'';
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(prop)||prop<TODAY||prop>END){toast('Выберите дату отработки');return}
+ const w=new Date(d+'T00:00:00').getDay(),id=Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+  req={sk:KEY,sname:nm(USER),group:gname(USER),missed:d,title:(myDays()[w]||{}).n||'Физкультура',prop,st:'pending',at:Date.now()};
+ try{await mkPut(KEY,id,req)}catch(e){toast('Не отправилось: '+(e.message||e));return}
+ MK={...MK,[id]:req};toast('Заявка отправлена преподавателю');render()}
+async function mkDecide(sk,id,ok){const r=(MKA[sk]||{})[id];if(!r)return;const n={...r,st:ok?'approved':'declined',by:nm(USER),decidedAt:Date.now()};
+ try{await mkPut(sk,id,n)}catch(e){toast('Не удалось сохранить: '+(e.message||e));return}
+ MKA={...MKA,[sk]:{...MKA[sk],[id]:n}};toast(ok?'Отработка согласована':'Заявка отклонена');render()}
+async function mkAtt(sk,id,v){const r=(MKA[sk]||{})[id],u=U[sk];if(!r||!u)return;
+ if(v==='a'){const st=u.s=dflt(u.s);st.mk[r.missed]=r.prop;st.xp+=20;st.log={...st.log};st.log[TODAY]=(st.log[TODAY]||0)+20;putS(sk);toast(nm(u)+': отработка засчитана, +20 XP')}
+ const n={...r,st:v==='a'?'done':'noshow'};
+ try{await mkPut(sk,id,n)}catch(e){toast('Не удалось сохранить: '+(e.message||e));return}
+ MKA={...MKA,[sk]:{...MKA[sk],[id]:n}};render()}
+async function schEdit(g,i,del){const s=cal.sel,w=new Date(s+'T00:00:00').getDay(),key=schKey(g),days=parseDays(SCH[key]||'');
+ if(del)delete days[w];else{const te=$('#et-'+i),ne=$('#en-'+i),t=te?te.value:'',n=((ne&&ne.value)||'').trim();if(!t){toast('Укажите время занятия');return}days[w]={t,n:n||'Физкультура'}}
+ const next={...SCH},str=serDays(days);if(str)next[key]=str;else delete next[key];
+ const obj={};for(const[k,v]of Object.entries(next))obj[enc(k)]=v;
+ try{await schPut(obj);SCH=normSch(obj);toast(del?'Занятие удалено':'Расписание сохранено')}catch(e){toast('Не удалось сохранить: '+(e.message||e));return}
+ render()}
 async function supTick(){if(page!=='support')return;
  try{
   if(AD&&!SV.k){const ix=(await supIdx())||{};ADX=ix;const el=$('#suplist');if(el)el.innerHTML=supItems(ix,0,true);return}
@@ -140,7 +200,7 @@ function parseDays(str){const out={};String(str).split(/[,\n]/).forEach(tok=>{to
  if(tm){t=tm[1].padStart(2,'0')+':'+tm[2];rest=rest.replace(tm[0],'')}out[w]={t,n:rest.trim()||'Физкультура'}});return out}
 const schOf=gk=>{if(!gk)return{};const nk=gnorm(G[gk]),kk=gnorm(gk);for(const k in SCH){const n=gnorm(k);if(n===nk||n===kk)return parseDays(SCH[k])}return{}};
 const myDays=()=>schOf(gKeyOf(USER));
-const schNote=()=>T?(Object.keys(SCH).length?'':'<p class="muted" style="margin-bottom:12px">Расписание групп не задано в базе данных</p>'):(Object.keys(myDays()).length?'':'<p class="muted" style="margin-bottom:12px">Расписание вашей группы пока не задано</p>');
+const schNote=()=>TA?(Object.keys(SCH).length?'':'<p class="muted" style="margin-bottom:12px">Расписание групп не задано в базе данных</p>'):(Object.keys(myDays()).length?'':'<p class="muted" style="margin-bottom:12px">Расписание вашей группы пока не задано</p>');
 const tile=(h,i,b,s,n)=>`<a class="tile t-${i}" href="${h}"><span class="orb">${ic(i)}</span><span class="arr">${ic('chev')}</span>${n?`<span class="cnt abs">${n}</span>`:''}<b>${b}</b><small>${s}</small></a>`;
 const calTile=tile('calendar.html','calendar','Спортивный календарь','Твои тренировки, события и дедлайны');
 
@@ -152,8 +212,7 @@ home(){const L=lvl();return `
 ${tile('progress.html','chart','Успеваемость','Следи за своим прогрессом')}
 ${tile('profile.html','user','Профиль','Твои данные, цели и достижения')}
 ${tile('quests.html','trophy','Еженедельные квесты','Выполняй задания и получай награды')}
-${tile('coach.html','bot','QAZ Coach','ИИ-тренер: тренировки и питание')}
-${tile('support.html','chat','Поддержка',UNR>0?'Есть новый ответ':'Напишите нам, мы поможем',UNR)}</div>
+${tile('coach.html','bot','QAZ Coach','ИИ-тренер: советы по тренировкам, нагрузке и питанию').replace('class="tile ','class="tile wide ')}</div>
 <section class="card"><div class="row"><h2>Топ студентов</h2><a class="more" href="rating.html">Весь рейтинг${ic('chev')}</a></div>${rows(5)}</section>`},
 
 Thome(){return `
@@ -163,9 +222,8 @@ Thome(){return `
 ${tile('students.html','cap','Студенты','Группы и их прогресс')}
 ${tile('students.html','task','Задания','Подтверждение выполнения')}
 ${tile('profile.html','user','Профиль','Данные и смена пароля')}
-${tile('coach.html','bot','QAZ Coach','ИИ-тренер: тренировки и питание')}
-${tile('support.html','chat','Поддержка',UNR>0?'Есть новый ответ':'Напишите нам, мы поможем',UNR)}</div>
-<section class="card"><div class="row"><h2>Топ студентов</h2><a class="more" href="rating.html">Весь рейтинг${ic('chev')}</a></div>${rows(5)}</section>`},
+${tile('coach.html','bot','QAZ Coach','ИИ-тренер: советы по тренировкам, нагрузке и питанию').replace('class="tile ','class="tile wide ')}</div>
+${mkCard()}<section class="card"><div class="row"><h2>Топ студентов</h2><a class="more" href="rating.html">Весь рейтинг${ic('chev')}</a></div>${rows(5)}</section>`},
 
 students(){
  if(tv.s&&U[tv.s]){const r=U[tv.s],s=dflt(r.s),L=lvl(s.xp);
@@ -182,7 +240,7 @@ for(let i=1;i<=n;i++){const s=iso(new Date(y,m,i)),f=dayInfo(s);c+=`<button clas
 const dt=new Date(cal.sel+'T00:00:00').toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});
 return head('Календарь')+`<div class="card"><div class="row"><button class="back" data-a="cm" data-id="-1">${ic('back')}</button><h2 class="cap">${cal.d.toLocaleDateString('ru-RU',{month:'long',year:'numeric'})}</h2><button class="back" data-a="cm" data-id="1">${ic('chev')}</button></div>
 <div class="cg wk">${['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(x=>`<small>${x}</small>`).join('')}</div><div class="cg">${c}</div>
-<div class="leg"><span><u class="dot n"></u>Предстоит</span>${T?'<span><u class="dot g"></u>Проведено</span>':'<span><u class="dot g"></u>Посещено</span><span><u class="dot r"></u>Пропуск</span><span><u class="dot b"></u>Отработка</span>'}</div></div>
+<div class="leg"><span><u class="dot n"></u>Предстоит</span>${TA?'<span><u class="dot g"></u>Проведено</span><span><u class="dot b"></u>Отработка</span>':'<span><u class="dot g"></u>Посещено</span><span><u class="dot r"></u>Пропуск</span><span><u class="dot b"></u>Отработка</span>'}</div></div>
 ${schNote()}<div class="card"><div class="day" style="margin-top:0">${dt}</div>${detail(dayInfo(cal.sel),cal.sel)}</div>`},
 
 progress(){const L=lvl();
@@ -199,19 +257,20 @@ return head('Профиль')+`
 <div class="card pf"><span class="av">${nm(USER)[0]}</span><h2>${nm(USER)}</h2><small>${gname(USER)?gname(USER)+' · ':''}${score()} баллов</small></div>
 <div class="card"><h2>Мои цели</h2>${G.map((g,i)=>`<div class="goal ${S.goals.includes(i)?'on':''}" data-a="goal" data-id="${i}"><span>${S.goals.includes(i)?ic('check'):''}</span>${g}</div>`).join('')}</div>
 <div class="card"><h2 style="margin-bottom:10px">Достижения</h2><div class="badges">${B.map(b=>`<div class="bd ${b[2]?'':'off'}"><i>${ic(b[0])}</i>${b[1]}</div>`).join('')}</div></div>
-<div class="stack"><a class="btn" href="settings.html">${ic('gear')}Настройки</a></div>`},
+<div class="stack"><a class="btn ghost" href="support.html">${ic('chat')}Написать в поддержку${UNR>0?`<span class="cnt">${UNR}</span>`:''}</a><a class="btn" href="settings.html">${ic('gear')}Настройки</a></div>`},
 
 Tprofile(){return head('Профиль')+`
 <div class="card pf"><span class="av">${nm(USER)[0]}</span><h2>${nm(USER)}</h2><small>Преподаватель</small></div>
 <div class="card"><small>Групп: ${Object.keys(G).length} · Студентов в группах: ${Object.keys(G).reduce((a,g)=>a+studentsOf(g).length,0)}</small></div>
-<div class="stack"><a class="btn" href="settings.html">${ic('gear')}Настройки</a></div>`},
+<div class="stack"><a class="btn ghost" href="support.html">${ic('chat')}Написать в поддержку${UNR>0?`<span class="cnt">${UNR}</span>`:''}</a><a class="btn" href="settings.html">${ic('gear')}Настройки</a></div>`},
 
 Ahome(){const n=unreadAdmin();return `
 <header class="top"><div><div class="logo">FIT<b>Q</b>AZ</div><p class="muted">Панель администратора</p></div>
 <a class="lvl" href="settings.html"><span>${nm(USER)}</span><small>Администратор</small></a></header>
 <div class="grid">${tile('support.html','chat','Поддержка',n?'Новых обращений: '+n:'Чаты пользователей',n)}
+${tile('calendar.html','calendar','Расписание','Занятия групп: изменить, добавить, удалить')}
 ${tile('settings.html','gear','Настройки','Пароль и оформление')}</div>
-<section class="card"><div class="row"><h2>Последние обращения</h2><a class="more" href="support.html">Все${ic('chev')}</a></div></section>${supItems(ADX,5,false)}`},
+${mkCard()}<section class="card"><div class="row"><h2>Последние обращения</h2><a class="more" href="support.html">Все${ic('chev')}</a></div></section>${supItems(ADX,5,false)}`},
 
 support(){return head('Поддержка')+`<div id="supchat" class="chat sup"><div class="muted">Загрузка…</div></div>
 <form id="sf" class="cbar"><input id="si" placeholder="Напишите сообщение…" autocomplete="off" maxlength="500"><button class="btn send">${ic('send')}</button></form>`},
@@ -227,7 +286,7 @@ settings(){const g=(k,d)=>{try{return localStorage.getItem('fitqaz_'+k)||d}catch
 <div class="card"><h2>Размер текста</h2><div class="segs">${seg('size','normal','Обычный',sz)}${seg('size','big','Крупный',sz)}</div></div>
 <div class="card"><h2>Анимации</h2><div class="segs">${seg('anim','on','Включены',an)}${seg('anim','off','Выключены',an)}</div></div>
 <div class="card"><h2>Аккаунт</h2><small>${nm(USER)}${AD?' · администратор':T?' · преподаватель':''}</small></div>
-<div class="stack"><button class="btn" data-a="pwd">${ic('key')}Сменить пароль</button>${AD?'':`<a class="btn ghost" href="support.html">${ic('chat')}Поддержка</a>`}${(T||AD)?'':`<button class="btn ghost" data-a="reset">${ic('reset')}Сбросить прогресс</button>`}<button class="btn ghost" data-a="logout">${ic('logout')}Выйти из аккаунта</button></div>`},
+<div class="stack"><button class="btn" data-a="pwd">${ic('key')}Сменить пароль</button>${(T||AD)?'':`<button class="btn ghost" data-a="reset">${ic('reset')}Сбросить прогресс</button>`}<button class="btn ghost" data-a="logout">${ic('logout')}Выйти из аккаунта</button></div>`},
 
 coach(){const h=hist();return head('QAZ Coach')+`<div id="chat" class="chat">${(h.length?h:[{r:'a',t:HELLO}]).map(bub).join('')}</div>
 <div class="chips"><div class="track">${[...QS,...QS].map(t=>`<button class="chip" data-a="chip" data-t="${t}">${t}</button>`).join('')}</div></div>
@@ -238,7 +297,7 @@ rating(){return head('Рейтинг')+`<section class="card">${rows(20)}</secti
 };
 
 const NAV=[['index','Главная','home','home'],['calendar','Календарь','calendar','calendar'],['progress','Успеваемость','chart','progress'],['profile','Профиль','user','profile'],['coach','QAZ Coach','bot','coach']];
-const NAVA=[['index','Главная','home','home'],['support','Поддержка','chat','support'],['settings','Настройки','gear','settings']];
+const NAVA=[['index','Главная','home','home'],['calendar','Календарь','calendar','calendar'],['support','Поддержка','chat','support'],['settings','Настройки','gear','settings']];
 const NAVT=[['index','Главная','home','home'],['calendar','Календарь','calendar','calendar'],['students','Студенты','cap','students'],['profile','Профиль','user','profile'],['coach','QAZ Coach','bot','coach']];
 /* Красная «капсула» в нижнем меню плавно скользит от прежнего раздела к новому */
 function slideNav(){const nav=$('nav');if(!nav||!nav.querySelectorAll)return;
@@ -254,13 +313,13 @@ function slideNav(){const nav=$('nav');if(!nav||!nav.querySelectorAll)return;
  else{pill.style.transition='none';pos(cur);pill.style.opacity='1';if(pill.getBoundingClientRect)pill.getBoundingClientRect();pill.style.transition=''}
  try{sessionStorage.setItem('fitqaz_nav',String(cur))}catch(e){}}
 if(window.addEventListener)window.addEventListener('resize',()=>{const nav=$('nav');if(!nav)return;const a=nav.querySelector('a.on'),p=nav.querySelector('.pill');if(a&&p){p.style.transition='none';p.style.width=a.offsetWidth+'px';p.style.transform='translateX('+a.offsetLeft+'px)'}});
-let lastSig='';const sig=()=>JSON.stringify([U,G,UNR,ADX]);
+let lastSig='';const sig=()=>JSON.stringify([U,G,SCH,UNR,ADX,MK,MKA]);
 function render(){const fn=(AD&&P['A'+page])||(T&&P['T'+page])||P[page];
  if(!fn){location.replace('index.html');return}
- $('#app').innerHTML=fn()+`<nav><span class="pill"></span>${(AD?NAVA:T?NAVT:NAV).map(n=>`<a href="${n[0]}.html" class="${n[3]===page?'on':''}">${ic(n[2])}<span>${n[1]}</span></a>`).join('')}</nav>`;
+ $('#app').innerHTML=fn()+`<nav><span class="pill"></span>${(AD?NAVA:T?NAVT:NAV).map(n=>`<a href="${n[0]}.html" class="${n[3]===page?'on':''}">${ic(n[2])}<span>${n[1]}</span>${(n[0]==='profile'&&!AD&&UNR>0)||(n[0]==='index'&&TA&&pendReqs().length)?'<i class="nd"></i>':''}</a>`).join('')}</nav>`;
  rankFx();lastSig=sig();slideNav();if(page==='coach')toBottom();if(page==='support')supTick()}
 
-async function sync(){await refresh();await supPoll();const m=U[KEY];if(!m||document.querySelector('.modal')||sig()===lastSig)return;
+async function sync(){await refresh();await supPoll();mkNotify();const m=U[KEY];if(!m||document.querySelector('.modal')||sig()===lastSig)return;
  const old=S.xp;USER=m;S=dflt(m.s);
  if(!T&&S.xp>old)toast('+'+(S.xp-old)+' XP — подтвердил преподаватель');
  if(page==='coach'||page==='support'){lastSig=sig();return}
@@ -291,6 +350,11 @@ document.addEventListener('submit',e=>{if(!e.target)return;if(e.target.id==='sf'
 document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a,id=+b.dataset.id;
  if(a==='timer')return timer();
  if(a==='chip'){sendChat(b.dataset.t);return}
+ if(a==='mkreq'){mkSend(b.dataset.d);return}
+ if(a==='mkok'||a==='mkno'){mkDecide(b.dataset.sk,b.dataset.id,a==='mkok');return}
+ if(a==='matt'){mkAtt(b.dataset.sk,b.dataset.id,b.dataset.v);return}
+ if(a==='schsave'){schEdit(b.dataset.g,b.dataset.i,false);return}
+ if(a==='schdel'){schEdit(b.dataset.g,0,true);return}
  if(a==='sopen'){SV.k=b.dataset.id;SV.sig=''}
  if(a==='aback'){SV.k=null;SV.sig=''}
  if(a==='pwd')return pwdModal();
@@ -300,7 +364,6 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b
  if(a==='att'){const r=U[b.dataset.id];if(!r)return;const s=r.s=dflt(r.s),d=cal.sel,v=b.dataset.v,p=s.att[d];if(p===v)return;
   s.att[d]=v;if(v==='a'&&p!=='a'){s.xp+=10;s.log={...s.log};s.log[TODAY]=(s.log[TODAY]||0)+10;toast(`${nm(r)}: пришёл, +10 XP`)}else if(v!=='a'&&p==='a')s.xp=Math.max(0,s.xp-10);
   putS(b.dataset.id)}
- if(a==='mk'){S.mk[b.dataset.id]=cal.sel;addXp(20)}
  if(a==='goal'){S.goals=S.goals.includes(id)?S.goals.filter(x=>x!==id):[...S.goals,id];save()}
  if(a==='grp')tv.g=b.dataset.id;
  if(a==='stu')tv.s=b.dataset.id;
@@ -314,5 +377,5 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b
  if(a==='logout'){localStorage.removeItem(SK);location.replace('auth.html');return}
  render()});
 render();
-supPoll().then(()=>{if(sig()!==lastSig&&page!=='support')render()});
+supPoll().then(()=>{mkNotify();if(sig()!==lastSig&&page!=='support')render()});
 });
