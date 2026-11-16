@@ -1,5 +1,5 @@
 /* Подхватываем свежий style.css, даже если браузер держит старый в кеше */
-(function(){const l=document.querySelector&&document.querySelector('link[href^="style.css"]');if(l&&!/[?]v=/.test(l.getAttribute('href')))l.setAttribute('href','style.css?v=8')})();
+(function(){const l=document.querySelector&&document.querySelector('link[href^="style.css"]');if(l&&!/[?]v=/.test(l.getAttribute('href')))l.setAttribute('href','style.css?v=10')})();
 /* Настройки оформления (тема, размер текста, анимации) — хранятся на устройстве */
 function applyPrefs(){const r=document.documentElement;if(!r)return;const g=k=>{try{return localStorage.getItem('fitqaz_'+k)}catch(e){return null}};
  r.dataset.theme=g('theme')||'dark';r.dataset.size=g('size')||'normal';r.dataset.anim=g('anim')||'on'}
@@ -33,23 +33,25 @@ const IC={
  send:'<path d="M20.2 4 4 10.9l6.2 2.4 2.5 6.7L20.2 4Z"/><path d="m10.2 13.3 4.6-4.4"/>',
  warn:'<path d="M12 4.6 3.9 18.6h16.2L12 4.6Z"/><path d="M12 10.2v3.6"/><circle cx="12" cy="16.6" r=".6" fill="currentColor"/>',
  clock:'<circle cx="12" cy="12" r="8.3"/><path d="M12 7.6V12l3 2"/>',
- check:'<path d="m5.6 12.6 4 4 8.8-9.2"/>'
+ check:'<path d="m5.6 12.6 4 4 8.8-9.2"/>',
+ chat:'<path d="M5 6.8A2.8 2.8 0 0 1 7.8 4h8.4A2.8 2.8 0 0 1 19 6.8v6.4a2.8 2.8 0 0 1-2.8 2.8H12l-4 3.6V16h-.2A2.8 2.8 0 0 1 5 13.2V6.8Z"/><circle cx="9.2" cy="10" r=".8" fill="currentColor"/><circle cx="12" cy="10" r=".8" fill="currentColor"/><circle cx="14.8" cy="10" r=".8" fill="currentColor"/>'
 };
 const ic=n=>IC[n]?`<svg class="ic ${n}" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]}</svg>`:'';
 /* Если в html забыли подключить config.js — подгружаем его сами */
 if(typeof window.FITQAZ_DB_URL==='undefined'){try{const x=new XMLHttpRequest();x.open('GET','config.js?'+Date.now(),false);x.send();if(x.status===200)(0,eval)(x.responseText)}catch(e){}}
-/* Хранилище аккаунтов + вход/регистрация. */
+/* Хранилище аккаунтов + вход/регистрация. Если в config.js указан Firebase — данные общие для всех устройств. */
+/* Показываем ошибку на экране, если страница не отрисовалась */
 if(window.addEventListener){const showErr=m=>{const a=document.getElementById('app');if(a&&!a.innerHTML.trim())a.innerHTML='<div class="card"><h2>Ошибка загрузки</h2><p class="err" style="margin-top:8px">'+String(m).replace(/</g,'&lt;')+'</p><small>Сделайте скриншот этого экрана</small></div>'};
  window.addEventListener('error',e=>showErr(e.message+' ('+(e.filename||'').split('/').pop()+':'+e.lineno+')'));
  window.addEventListener('unhandledrejection',e=>showErr((e.reason&&e.reason.message)||e.reason))}
 const UK='fitqaz_users',SK='fitqaz_session',DBURL=(window.FITQAZ_DB_URL||'').replace(/\/$/,'');
-let U={},G={},SCH={};const touched={};
+let U={},G={},SCH={},schHold=0;const touched={};
 const clean=x=>String(x).replace(/["<>]/g,'').trim();
 const normG=g=>{const o={};if(typeof g==='string'){g.split(/[,;\n]/).map(clean).filter(x=>x.length>1).forEach(x=>o[x]=x);return o}if(g&&typeof g==='object')for(const[k,v]of Object.entries(g)){if(v==null)continue;o[k]=typeof v==='string'?v:(v.name||String(k))}return o};const normSch=s=>{const o={};if(typeof s==='string'){s.split(/[;\n]/).forEach(e=>{const i=e.indexOf(':');if(i>0)o[clean(e.slice(0,i))]=e.slice(i+1).trim()})}else if(s&&typeof s==='object'){for(const[k,v]of Object.entries(s))if(typeof v==='string')o[k]=v}return o};
 const NET={s:DBURL?'wait':'local',m:''};
 const netText=()=>({local:'Локальный режим: данные только на этом устройстве',ok:'Онлайн: общая база',wait:'Подключение…',err:NET.m})[NET.s];
 const netErr=e=>{NET.s='err';NET.m=e.message==='Failed to fetch'?'Нет связи с базой: проверьте адрес в config.js и интернет':e.message};
-const enc=k=>String(k).replace(/[.$#$$$$\/]/g,'_');
+const enc=k=>String(k).replace(/[.$#\[\]\/]/g,'_');
 const upath=k=>`${DBURL}/fitqaz/users/${encodeURIComponent(enc(k))}`;
 const curKey=()=>localStorage.getItem(SK);
 const localISO=()=>new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
@@ -62,7 +64,7 @@ async function hash(pw,salt){
 async function loadUsers(){let raw={},gr=null,sc=null;
  try{if(DBURL){const r=await fetch(DBURL+'/fitqaz.json');
   if(!r.ok)throw new Error(r.status===401||r.status===403?'Нет доступа к базе: во вкладке Rules вставьте правила и нажмите «Опубликовать»':r.status===404?'Неверный адрес базы в config.js':'Ошибка базы '+r.status);
-  const all=(await r.json())||{};raw=all.users||{};gr=all.groups;sc=all.schedule;NET.s='ok'}else{raw=JSON.parse(localStorage.getItem(UK))||{};gr=JSON.parse(localStorage.getItem('fitqaz_groups')||'null');sc=JSON.parse(localStorage.getItem('fitqaz_schedule')||'null')}SCH=normSch(sc);G=normG(gr);if(!Object.keys(G).length)G={'СИБ-25-7':'СИБ-25-7'}}catch(e){if(DBURL)netErr(e)}
+  const all=(await r.json())||{};raw=all.users||{};gr=all.groups;sc=all.schedule;NET.s='ok'}else{raw=JSON.parse(localStorage.getItem(UK))||{};gr=JSON.parse(localStorage.getItem('fitqaz_groups')||'null');sc=JSON.parse(localStorage.getItem('fitqaz_schedule')||'null')}if(Date.now()-schHold>4000)SCH=normSch(sc);G=normG(gr);if(!Object.keys(G).length)G={'СИБ-25-7':'СИБ-25-7'}}catch(e){if(DBURL)netErr(e)}
  const n={},mig=[];
  for(const[k,r]of Object.entries(raw))if(r&&typeof r==='object'){r.k=r.k||k;
   if(DBURL&&k!==enc(r.k)){mig.push([k,r]);if(raw[enc(r.k)])continue}
@@ -82,9 +84,41 @@ function putUser(k){touched[k]=Date.now();U[k].k=k;
 function putS(k){touched[k]=Date.now();
  if(DBURL)fetch(upath(k)+'/s.json',{method:'PUT',keepalive:true,body:JSON.stringify(U[k].s||{})}).then(r=>{if(!r.ok)netErr(new Error('Не удалось сохранить в базу (код '+r.status+')'))}).catch(netErr);
  else localStorage.setItem(UK,JSON.stringify(U))}
+/* ===== Чат поддержки =====
+   Хранение (Firebase): support/<ключ пользователя>/<id сообщения> = {r:'u'|'a', t:'текст', at:время}
+                        supportIdx/<ключ пользователя> = {k, name, role, last, lastAt, ua (непрочитано админом), uu (непрочитано пользователем)}
+   Без Firebase (локальный режим) всё лежит в localStorage. */
+const SUPK='fitqaz_support';
+const sload=()=>{try{return JSON.parse(localStorage.getItem(SUPK))||{idx:{},msg:{}}}catch(e){return{idx:{},msg:{}}}};
+const ssave=o=>{try{localStorage.setItem(SUPK,JSON.stringify(o))}catch(e){}};
+const ekey=k=>encodeURIComponent(enc(k));
+const sfetch=async(path,opt)=>{const r=await fetch(DBURL+path+'.json',opt);if(!r.ok)throw new Error('Ошибка базы, код '+r.status);return r.json()};
+async function supIdx(k){if(DBURL)return (await sfetch('/supportIdx'+(k?'/'+ekey(k):'')))||(k?null:{});const o=sload();return k?(o.idx[k]||null):o.idx}
+async function supMsgs(k){const m=DBURL?((await sfetch('/support/'+ekey(k)))||{}):(sload().msg[k]||{});
+ return Object.entries(m).map(([id,v])=>({id,...v})).sort((a,b)=>(a.at-b.at)||a.id.localeCompare(b.id))}
+async function supSend(k,who,user,text){text=String(text).trim().slice(0,500);const at=Date.now(),id=at.toString(36)+Math.random().toString(36).slice(2,6),msg={r:who,t:text,at};
+ const f=who==='u'?'ua':'uu',meta={k,last:text.slice(0,80),lastAt:at};if(who==='u'){meta.name=user.fio||user.name;meta.role=user.role||'student'}
+ if(DBURL){await sfetch('/support/'+ekey(k)+'/'+id,{method:'PUT',body:JSON.stringify(msg)});
+  await sfetch('/supportIdx/'+ekey(k),{method:'PATCH',body:JSON.stringify({...meta,[f]:{'.sv':{increment:1}}})})}
+ else{const o=sload();(o.msg[k]=o.msg[k]||{})[id]=msg;const ix=o.idx[k]=o.idx[k]||{};Object.assign(ix,meta);ix[f]=(ix[f]||0)+1;ssave(o)}
+ return{id,...msg}}
+async function supRead(k,side){const f=side==='a'?'ua':'uu';
+ if(DBURL)await sfetch('/supportIdx/'+ekey(k),{method:'PATCH',body:JSON.stringify({[f]:0})});
+ else{const o=sload();if(o.idx[k])o.idx[k][f]=0;ssave(o)}}
+/* ===== Заявки на отработку: makeup/<ключ студента>/<id> = {sk,sname,group,missed,title,prop,st,at}
+   st: pending (ждёт) | approved (согласовано) | declined (отклонено) | done (отработал) | noshow (не пришёл) ===== */
+const MKK='fitqaz_makeup';
+const mload=()=>{try{return JSON.parse(localStorage.getItem(MKK))||{}}catch(e){return{}}};
+const msave=o=>{try{localStorage.setItem(MKK,JSON.stringify(o))}catch(e){}};
+async function mkAll(){return DBURL?((await sfetch('/makeup'))||{}):mload()}
+async function mkOwn(k){return DBURL?((await sfetch('/makeup/'+ekey(k)))||{}):(mload()[k]||{})}
+async function mkPut(k,id,req){if(DBURL)await sfetch('/makeup/'+ekey(k)+'/'+id,{method:'PUT',body:JSON.stringify(req)});else{const o=mload();(o[k]=o[k]||{})[id]=req;msave(o)}}
+/* Расписание групп целиком: {"название группы":"вт 10:00 Футбол, чт 15:30"} */
+async function schPut(obj){schHold=Date.now();if(DBURL)await sfetch('/fitqaz/schedule',{method:'PUT',body:JSON.stringify(obj)});else{try{localStorage.setItem('fitqaz_schedule',JSON.stringify(obj))}catch(e){}}}
 const DEMO=[
  {k:'student',name:'student',fio:'Алимжан',role:'student',pw:'student123',s:{xp:0}},
- {k:'teacher',name:'teacher',fio:'Ерлан',role:'teacher',pw:'teacher123'}];
+ {k:'teacher',name:'teacher',fio:'Ерлан',role:'teacher',pw:'teacher123'},
+ {k:'admin',name:'admin',fio:'Администратор',role:'admin',pw:'admin123'}];
 async function seed(){for(const d of DEMO){
  if(!U[d.k]){const{pw,...r}=d,salt=newSalt();U[d.k]={...r,salt,hash:await hash(pw,salt),v:2,created:localISO()};putUser(d.k)}
  else if(U[d.k].fio!==d.fio){U[d.k].fio=d.fio;putUser(d.k)}}}
@@ -93,33 +127,32 @@ const READY=(async()=>{U=await loadUsers();await seed()})();
 if(document.body.dataset.page==='auth')READY.then(()=>{
  if(U[curKey()]){location.replace('index.html');return}
  const app=document.getElementById('app');app.className='auth';let mode='choose';
- const fld=(id,ph,t,ac)=>`<input id="${id}" type="${t||'text'}" placeholder="${ph}" autocomplete="${ac||'off'}" required>`;
+ const fld=(id,ph,t,ac)=>`<input id="${id}" type="${t||'text'}" placeholder="${ph}" autocomplete="${ac||'off'}" ${id==='n'?'maxlength="30"':''} required>`;
  const logo='<div class="logo" style="text-align:center">FIT<b>Q</b>AZ</div><p class="muted" style="text-align:center">Двигайся. Развивайся. Достигай.</p>';
  const V={
   choose:()=>`${logo}<div class="card stack"><h2>Добро пожаловать!</h2><small>Выберите, как продолжить</small>
    <button class="btn big" data-m="reg">Я новый пользователь — регистрация</button>
    <button class="btn big ghost" data-m="login">У меня уже есть аккаунт — войти</button></div>`,
   reg:()=>`${logo}<div class="card"><h2 style="margin-bottom:12px">Регистрация студента</h2><form id="f">
-   ${fld('n','Ваше имя','text','username')}
+   ${fld('n','Фамилия и имя','text','username')}
    <select id="g">${Object.entries(G).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select>
    ${fld('p','Пароль (от 6 символов)','password','new-password')}${fld('p2','Повторите пароль','password','new-password')}
    <div class="err" id="er"></div><button class="btn big">Создать аккаунт</button></form></div>
    <button class="lnk" data-m="login">Уже есть аккаунт? Войти</button><button class="lnk" data-m="choose">${ic('back')}Назад</button>`,
   login:()=>`${logo}<div class="card"><h2 style="margin-bottom:12px">Вход</h2><form id="f">
- ${fld('n','Имя','text','username')}${fld('p','Пароль','password','current-password')}
- <div class="err" id="er"></div><button class="btn big">Войти</button></form></div>
- <button class="lnk" data-m="reg">Нет аккаунта? Регистрация</button><button class="lnk" data-m="choose">${ic('back')}Назад</button>`};
+   ${fld('n','Фамилия и имя','text','username')}${fld('p','Пароль','password','current-password')}
+   <div class="err" id="er"></div><button class="btn big">Войти</button></form></div>
+   <button class="lnk" data-m="reg">Нет аккаунта? Регистрация</button><button class="lnk" data-m="choose">${ic('back')}Назад</button>`};
  const draw=()=>{app.innerHTML=V[mode]()+'';const n=document.getElementById('n');if(n)n.focus()};
  const v=id=>document.getElementById(id).value,fail=m=>document.getElementById('er').textContent=m;
- app.addEventListener('click',e=>{const b=e.target.closest('[data-m]');
-  if(b){mode=b.dataset.m;draw()}});
+ app.addEventListener('click',e=>{const b=e.target.closest('[data-m]');if(b){mode=b.dataset.m;draw()}});
  let busy=false;
  app.addEventListener('submit',async e=>{e.preventDefault();if(busy)return;busy=true;
   try{
    fail('Подождите…');await refresh();
    const name=v('n').trim(),k=name.toLowerCase(),pw=v('p');
    if(mode==='reg'){
-    if(name.length<2||name.length>20)return fail('Имя: от 2 до 20 символов');
+    if(name.length<2||name.length>30)return fail('Фамилия и имя: от 2 до 30 символов');
     if(U[k])return fail('Такое имя уже занято — выберите другое или войдите');
     if(pw.length<6)return fail('Пароль: минимум 6 символов');
     if(pw!==v('p2'))return fail('Пароли не совпадают');
