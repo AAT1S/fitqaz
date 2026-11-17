@@ -1,5 +1,5 @@
 /* Подхватываем свежий style.css, даже если браузер держит старый в кеше */
-(function(){const l=document.querySelector&&document.querySelector('link[href^="style.css"]');if(l&&!/[?]v=/.test(l.getAttribute('href')))l.setAttribute('href','style.css?v=10')})();
+(function(){const l=document.querySelector&&document.querySelector('link[href^="style.css"]');if(l&&!/[?]v=/.test(l.getAttribute('href')))l.setAttribute('href','style.css?v=11')})();
 /* Настройки оформления (тема, размер текста, анимации) — хранятся на устройстве */
 function applyPrefs(){const r=document.documentElement;if(!r)return;const g=k=>{try{return localStorage.getItem('fitqaz_'+k)}catch(e){return null}};
  r.dataset.theme=g('theme')||'dark';r.dataset.size=g('size')||'normal';r.dataset.anim=g('anim')||'on'}
@@ -36,7 +36,7 @@ const IC={
  check:'<path d="m5.6 12.6 4 4 8.8-9.2"/>',
  chat:'<path d="M5 6.8A2.8 2.8 0 0 1 7.8 4h8.4A2.8 2.8 0 0 1 19 6.8v6.4a2.8 2.8 0 0 1-2.8 2.8H12l-4 3.6V16h-.2A2.8 2.8 0 0 1 5 13.2V6.8Z"/><circle cx="9.2" cy="10" r=".8" fill="currentColor"/><circle cx="12" cy="10" r=".8" fill="currentColor"/><circle cx="14.8" cy="10" r=".8" fill="currentColor"/>'
 };
-const ic=n=>IC[n]?`<svg class="ic ${n}" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]}</svg>`:'';
+const ic=n=>IC[n]?`<svg class="ic ic-${n}" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]}</svg>`:'';
 /* Если в html забыли подключить config.js — подгружаем его сами */
 if(typeof window.FITQAZ_DB_URL==='undefined'){try{const x=new XMLHttpRequest();x.open('GET','config.js?'+Date.now(),false);x.send();if(x.status===200)(0,eval)(x.responseText)}catch(e){}}
 /* Хранилище аккаунтов + вход/регистрация. Если в config.js указан Firebase — данные общие для всех устройств. */
@@ -45,7 +45,7 @@ if(window.addEventListener){const showErr=m=>{const a=document.getElementById('a
  window.addEventListener('error',e=>showErr(e.message+' ('+(e.filename||'').split('/').pop()+':'+e.lineno+')'));
  window.addEventListener('unhandledrejection',e=>showErr((e.reason&&e.reason.message)||e.reason))}
 const UK='fitqaz_users',SK='fitqaz_session',DBURL=(window.FITQAZ_DB_URL||'').replace(/\/$/,'');
-let U={},G={},SCH={},schHold=0;const touched={};
+let U={},G={},SCH={},schHold=0,QDB=null,qHold=0;const touched={};
 const clean=x=>String(x).replace(/["<>]/g,'').trim();
 const normG=g=>{const o={};if(typeof g==='string'){g.split(/[,;\n]/).map(clean).filter(x=>x.length>1).forEach(x=>o[x]=x);return o}if(g&&typeof g==='object')for(const[k,v]of Object.entries(g)){if(v==null)continue;o[k]=typeof v==='string'?v:(v.name||String(k))}return o};const normSch=s=>{const o={};if(typeof s==='string'){s.split(/[;\n]/).forEach(e=>{const i=e.indexOf(':');if(i>0)o[clean(e.slice(0,i))]=e.slice(i+1).trim()})}else if(s&&typeof s==='object'){for(const[k,v]of Object.entries(s))if(typeof v==='string')o[k]=v}return o};
 const NET={s:DBURL?'wait':'local',m:''};
@@ -61,10 +61,10 @@ async function hash(pw,salt){
   const b=await crypto.subtle.deriveBits({name:'PBKDF2',salt:new TextEncoder().encode(salt),iterations:100000,hash:'SHA-256'},k,256);
   return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
  let h=5381;for(const c of salt+pw)h=((h*33)^c.charCodeAt(0))>>>0;return 'w'+h}
-async function loadUsers(){let raw={},gr=null,sc=null;
+async function loadUsers(){let raw={},gr=null,sc=null,qr=null,qc=null;
  try{if(DBURL){const r=await fetch(DBURL+'/fitqaz.json');
   if(!r.ok)throw new Error(r.status===401||r.status===403?'Нет доступа к базе: во вкладке Rules вставьте правила и нажмите «Опубликовать»':r.status===404?'Неверный адрес базы в config.js':'Ошибка базы '+r.status);
-  const all=(await r.json())||{};raw=all.users||{};gr=all.groups;sc=all.schedule;NET.s='ok'}else{raw=JSON.parse(localStorage.getItem(UK))||{};gr=JSON.parse(localStorage.getItem('fitqaz_groups')||'null');sc=JSON.parse(localStorage.getItem('fitqaz_schedule')||'null')}if(Date.now()-schHold>4000)SCH=normSch(sc);G=normG(gr);if(!Object.keys(G).length)G={'СИБ-25-7':'СИБ-25-7'}}catch(e){if(DBURL)netErr(e)}
+  const all=(await r.json())||{};raw=all.users||{};gr=all.groups;sc=all.schedule;qr=all.quests;qc=all.questsCustom;NET.s='ok'}else{raw=JSON.parse(localStorage.getItem(UK))||{};gr=JSON.parse(localStorage.getItem('fitqaz_groups')||'null');sc=JSON.parse(localStorage.getItem('fitqaz_schedule')||'null');qr=JSON.parse(localStorage.getItem('fitqaz_quests')||'null');qc=localStorage.getItem('fitqaz_quests_custom')}if(Date.now()-schHold>4000)SCH=normSch(sc);if(Date.now()-qHold>4000)QDB=normQ(qr,qc);G=normG(gr);if(!Object.keys(G).length)G={'СИБ-25-7':'СИБ-25-7'}}catch(e){if(DBURL)netErr(e)}
  const n={},mig=[];
  for(const[k,r]of Object.entries(raw))if(r&&typeof r==='object'){r.k=r.k||k;
   if(DBURL&&k!==enc(r.k)){mig.push([k,r]);if(raw[enc(r.k)])continue}
@@ -115,6 +115,12 @@ async function mkOwn(k){return DBURL?((await sfetch('/makeup/'+ekey(k)))||{}):(m
 async function mkPut(k,id,req){if(DBURL)await sfetch('/makeup/'+ekey(k)+'/'+id,{method:'PUT',body:JSON.stringify(req)});else{const o=mload();(o[k]=o[k]||{})[id]=req;msave(o)}}
 /* Расписание групп целиком: {"название группы":"вт 10:00 Футбол, чт 15:30"} */
 async function schPut(obj){schHold=Date.now();if(DBURL)await sfetch('/fitqaz/schedule',{method:'PUT',body:JSON.stringify(obj)});else{try{localStorage.setItem('fitqaz_schedule',JSON.stringify(obj))}catch(e){}}}
+/* ===== Квесты, заданные админом: fitqaz/quests/<id> = {id,n,xp,max,u,step}, флаг fitqaz/questsCustom = true ===== */
+const normQ=(raw,custom)=>{if(!custom)return null;
+ return Object.values(raw||{}).filter(q=>q&&typeof q==='object'&&q.n).map(q=>({id:+q.id||0,n:String(q.n).slice(0,80),xp:+q.xp||0,max:Math.max(1,+q.max||1),u:String(q.u||''),step:Math.max(1,+q.step||1)})).sort((x,y)=>x.id-y.id)};
+async function questsPut(list){qHold=Date.now();const obj={};list.forEach(q=>obj[q.id]=q);
+ if(DBURL){await sfetch('/fitqaz/quests',{method:'PUT',body:JSON.stringify(obj)});await sfetch('/fitqaz/questsCustom',{method:'PUT',body:'true'})}
+ else{try{localStorage.setItem('fitqaz_quests',JSON.stringify(obj));localStorage.setItem('fitqaz_quests_custom','1')}catch(e){}}}
 const DEMO=[
  {k:'student',name:'student',fio:'Алимжан',role:'student',pw:'student123',s:{xp:0}},
  {k:'teacher',name:'teacher',fio:'Ерлан',role:'teacher',pw:'teacher123'},
