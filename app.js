@@ -5,7 +5,7 @@ if(!USER){location.replace('auth.html');return}
 if(USER.v!==2){U[KEY]=USER={...USER,s:{xp:0},v:2,created:localISO()};putUser(KEY)}
 const T=USER.role==='teacher',AD=USER.role==='admin',TA=T||AD,nm=r=>r.fio||r.name;
 const fname=(location.pathname.split('/').pop()||'').replace('.html',''),page=(!fname||fname==='index')?'home':fname;
-const OKP=AD?['home','calendar','support','settings']:T?['home','calendar','students','profile','coach','rating','settings','support']:['home','calendar','progress','profile','quests','rating','settings','coach','support'];
+const OKP=AD?['home','calendar','quests','support','settings']:T?['home','calendar','students','profile','coach','rating','settings','support']:['home','calendar','progress','profile','quests','rating','settings','coach','support'];
 if(!OKP.includes(page)){location.replace('index.html');return}
 const DB={
  quests:[
@@ -16,6 +16,8 @@ const DB={
  students:[],
  norms:[['Бег 100 м',0],['Подтягивания',0],['Пресс (1 мин)',0],['Прыжок в длину',0]]
 };
+const QL=()=>QDB!==null?QDB:DB.quests;
+const qdone=qd=>qd.filter(id=>QL().some(q=>q.id===id)).length;
 const dflt=s=>{const o={xp:0,goals:[],qd:[],...(s||{})};o.qp={...o.qp};o.att={...o.att};o.mk={...o.mk};o.qd=[...o.qd];o.goals=[...o.goals];return o};
 let S=dflt(USER.s);
 let UNR=0,ADX={},MK={},MKA={};
@@ -160,6 +162,23 @@ async function mkAtt(sk,id,v){const r=(MKA[sk]||{})[id],u=U[sk];if(!r||!u)return
  const n={...r,st:v==='a'?'done':'noshow'};
  try{await mkPut(sk,id,n)}catch(e){toast('Не удалось сохранить: '+(e.message||e));return}
  MKA={...MKA,[sk]:{...MKA[sk],[id]:n}};render()}
+/* --- редактор квестов (админ) --- */
+const qRow=(q,i)=>`<div class="card ed"><div class="ev"><b>${q?'Квест':'Новый квест'}</b>${q?`<small>${q.max} ${esc(q.u)} → ${q.xp} XP</small>`:''}</div>
+<input id="qn-${i}" placeholder="Название, например: Пробежать 15 км" maxlength="60" value="${q?esc(q.n):''}">
+<div class="qgrid"><label><small>Награда (XP)</small><input id="qx-${i}" type="number" min="1" max="5000" value="${q?q.xp:''}"></label><label><small>Цель (всего)</small><input id="qm-${i}" type="number" min="1" value="${q?q.max:''}"></label><label><small>Шаг за подтверждение</small><input id="qs-${i}" type="number" min="1" value="${q?q.step:''}"></label><label><small>Единица (км, раз…)</small><input id="qu-${i}" maxlength="10" value="${q?esc(q.u):''}"></label></div>
+<div class="mk"><button class="btn sm" data-a="qsave" data-i="${i}"${q?` data-q="${q.id}"`:''}>${q?'Сохранить':'Добавить квест'}</button>${q?`<button class="btn sm ghost" data-a="qdel" data-q="${q.id}">Удалить</button>`:''}</div></div>`;
+async function qEdit(i,qid,del){let list=QL().map(q=>({...q}));
+ if(del)list=list.filter(q=>q.id!==+qid);
+ else{const g=k=>{const e=$('#'+k+'-'+i);return e?String(e.value):''};
+  const n=g('qn').trim(),xp=Math.round(+g('qx')),max=Math.round(+g('qm')),step=Math.round(+g('qs')),u=g('qu').trim();
+  if(!n){toast('Введите название квеста');return}
+  if(!(xp>=1&&xp<=5000)){toast('Награда: от 1 до 5000 XP');return}
+  if(!(max>=1)){toast('Цель должна быть больше нуля');return}
+  if(!(step>=1&&step<=max)){toast('Шаг: от 1 до значения цели');return}
+  if(qid){const q=list.find(x=>x.id===+qid);if(q)Object.assign(q,{n,xp,max,step,u})}
+  else list.push({id:Math.floor(Date.now()/1000),n,xp,max,u,step})}
+ try{await questsPut(list);QDB=list;toast(del?'Квест удалён':'Квест сохранён')}catch(e){toast('Не удалось сохранить: '+(e.message||e));return}
+ render()}
 async function schEdit(g,i,del){const s=cal.sel,w=new Date(s+'T00:00:00').getDay(),key=schKey(g),days=parseDays(SCH[key]||'');
  if(del)delete days[w];else{const te=$('#et-'+i),ne=$('#en-'+i),t=te?te.value:'',n=((ne&&ne.value)||'').trim();if(!t){toast('Укажите время занятия');return}days[w]={t,n:n||'Физкультура'}}
  const next={...SCH},str=serDays(days);if(str)next[key]=str;else delete next[key];
@@ -182,7 +201,7 @@ setInterval(supTick,2000);
 
 const tv={g:null,s:null};
 const pts=r=>scoreOf(r.s&&r.s.xp);
-const srow=(r,a)=>{const tg=a?'button':'div';return `<${tg} class="sr" ${a?`data-a="stu" data-id="${r.k}"`:''}><span class="av">${nm(r)[0]}</span><div><b>${nm(r)}</b><small>${[gname(r),a?dflt(r.s).qd.length+'/'+DB.quests.length+' заданий':''].filter(Boolean).join(' · ')}</small></div><em>${pts(r)}${ic('flame')}${a?ic('chev'):''}</em></${tg}>`};
+const srow=(r,a)=>{const tg=a?'button':'div';return `<${tg} class="sr" ${a?`data-a="stu" data-id="${r.k}"`:''}><span class="av">${nm(r)[0]}</span><div><b>${nm(r)}</b><small>${[gname(r),a?qdone(dflt(r.s).qd)+'/'+QL().length+' заданий':''].filter(Boolean).join(' · ')}</small></div><em>${pts(r)}${ic('flame')}${a?ic('chev'):''}</em></${tg}>`};
 const TR={а:'a',ә:'a',б:'b',в:'v',г:'g',ғ:'g',д:'d',е:'e',ё:'e',ж:'zh',з:'z',и:'i',і:'i',й:'i',к:'k',қ:'k',л:'l',м:'m',н:'n',ң:'n',о:'o',ө:'o',п:'p',р:'r',с:'s',т:'t',у:'u',ұ:'u',ү:'u',ф:'f',х:'h',һ:'h',ц:'c',ч:'ch',ш:'sh',щ:'sh',ы:'y',э:'e',ю:'u',я:'a'};
 const gnorm=x=>[...String(x).toLowerCase()].map(c=>TR[c]!==undefined?TR[c]:c).join('').replace(/[^a-z0-9]/g,'');
 const gKeyOf=r=>{if(r.group==null||r.group==='')return null;const v=String(r.group),nv=gnorm(v);
@@ -228,7 +247,7 @@ ${mkCard()}<section class="card"><div class="row"><h2>Топ студентов<
 students(){
  if(tv.s&&U[tv.s]){const r=U[tv.s],s=dflt(r.s),L=lvl(s.xp);
   return headB(nm(r),'tback')+`<div class="card pf"><span class="av">${nm(r)[0]}</span><h2>${nm(r)}</h2><small>${gname(r)||'без группы'}</small><b class="big-pts">${pts(r)}${ic('flame')}</b><small>Уровень ${L.l} · ${L.x} / 500 XP</small></div>
-<p class="muted" style="margin:4px 0 10px">Задания студента — подтверждайте выполнение:</p>`+DB.quests.map(q=>qcard(q,s.qp,s.qd,1)).join('')+`<button class="btn ghost" style="width:100%;margin-top:6px" data-a="tres">Сбросить прогресс студента</button>`}
+<p class="muted" style="margin:4px 0 10px">Задания студента — подтверждайте выполнение:</p>`+QL().map(q=>qcard(q,s.qp,s.qd,1)).join('')+`<button class="btn ghost" style="width:100%;margin-top:6px" data-a="tres">Сбросить прогресс студента</button>`}
  if(tv.g==='__none'){const L=unmatched();return headB('Группа не найдена','tback')+(L.length?`<p class="muted" style="margin:-6px 0 12px">Название группы у этих студентов не совпадает ни с одной группой из списка. Исправьте поле group в Firebase.</p><section class="card">${L.map(r=>srow(r,1)).join('')}</section>`:'<div class="card"><small>Таких студентов нет</small></div>')}
  if(tv.g&&G[tv.g]){const g=tv.g,L=studentsOf(g);
   return headB(G[g],'tback')+(L.length?`<section class="card">${L.map(r=>srow(r,1)).join('')}</section>`:'<div class="card"><small>В этой группе пока нет студентов</small></div>')}
@@ -246,7 +265,7 @@ ${schNote()}<div class="card"><div class="day" style="margin-top:0">${dt}</div>$
 progress(){const L=lvl();
 return head('Успеваемость')+`
 <div class="stats"><div class="card"><b>${score()}</b><small>всего баллов</small></div><div class="card"><b>${L.l}</b><small>уровень</small></div>
-<div class="card"><b>${stats().p}%</b><small>посещаемость</small></div><div class="card"><b>${S.qd.length}/${DB.quests.length}</b><small>квестов выполнено</small></div></div>
+<div class="card"><b>${stats().p}%</b><small>посещаемость</small></div><div class="card"><b>${qdone(S.qd)}/${QL().length}</b><small>квестов выполнено</small></div></div>
 <div class="card"><div class="row"><h2>До уровня ${L.l+1}</h2><small>${L.x} / 500</small></div><i class="bar"><u style="width:${L.x/5}%"></u></i></div>
 <div class="card"><h2>Активность за неделю (XP)</h2><div class="chart">${(()=>{const w=weekData(),mx=Math.max(1,...w.map(x=>x[1]));return w.map(x=>`<div>${x[1]}<u style="height:${x[1]/mx*100}%"></u>${x[0]}</div>`).join('')})()}</div></div>
 <div class="card"><h2>Нормативы</h2><small>Результаты появятся после сдачи нормативов</small>${DB.norms.map(n=>`<div class="nm"><div class="row"><span>${n[0]}</span><small>${n[1]}%</small></div><i class="bar"><u style="width:${n[1]}%"></u></i></div>`).join('')}</div>`},
@@ -269,11 +288,14 @@ Ahome(){const n=unreadAdmin();return `
 <a class="lvl" href="settings.html"><span>${nm(USER)}</span><small>Администратор</small></a></header>
 <div class="grid">${tile('support.html','chat','Поддержка',n?'Новых обращений: '+n:'Чаты пользователей',n)}
 ${tile('calendar.html','calendar','Расписание','Занятия групп: изменить, добавить, удалить')}
+${tile('quests.html','trophy','Квесты','Задания для всех студентов')}
 ${tile('settings.html','gear','Настройки','Пароль и оформление')}</div>
 ${mkCard()}<section class="card"><div class="row"><h2>Последние обращения</h2><a class="more" href="support.html">Все${ic('chev')}</a></div></section>${supItems(ADX,5,false)}`},
 
 support(){return head('Поддержка')+`<div id="supchat" class="chat sup"><div class="muted">Загрузка…</div></div>
 <form id="sf" class="cbar"><input id="si" placeholder="Напишите сообщение…" autocomplete="off" maxlength="500"><button class="btn send">${ic('send')}</button></form>`},
+
+Aquests(){return head('Квесты')+`<p class="muted" style="margin:-6px 0 12px">Квесты видят все студенты. Прогресс студентов при правках не сбрасывается.</p>`+QL().map((q,i)=>qRow(q,i)).join('')+qRow(null,'new')},
 
 Asupport(){if(SV.k){const x=ADX[SV.k];return headB(x&&x.name?x.name:SV.k,'aback')+`<div id="supchat" class="chat sup"><div class="muted">Загрузка…</div></div>
 <form id="sf" class="cbar"><input id="si" placeholder="Ответить…" autocomplete="off" maxlength="500"><button class="btn send">${ic('send')}</button></form>`}
@@ -292,12 +314,12 @@ coach(){const h=hist();return head('QAZ Coach')+`<div id="chat" class="chat">${(
 <div class="chips"><div class="track">${[...QS,...QS].map(t=>`<button class="chip" data-a="chip" data-t="${t}">${t}</button>`).join('')}</div></div>
 <form id="cf" class="cbar"><input id="ci" placeholder="Напишите вопрос…" autocomplete="off"><button class="btn send">${ic('send')}</button></form>`},
 
-quests(){return head('Квесты')+`<p class="muted" style="margin:-6px 0 12px">Задания подтверждает преподаватель — баллы начислятся сразу после подтверждения.</p>`+DB.quests.map(q=>qcard(q,S.qp,S.qd,0)).join('')},
+quests(){return head('Квесты')+`<p class="muted" style="margin:-6px 0 12px">Задания подтверждает преподаватель — баллы начислятся сразу после подтверждения.</p>`+(QL().length?QL().map(q=>qcard(q,S.qp,S.qd,0)).join(''):'<div class="card"><small>Заданий пока нет</small></div>')},
 rating(){return head('Рейтинг')+`<section class="card">${rows(20)}</section>`}
 };
 
 const NAV=[['index','Главная','home','home'],['calendar','Календарь','calendar','calendar'],['progress','Успеваемость','chart','progress'],['profile','Профиль','user','profile'],['coach','QAZ Coach','bot','coach']];
-const NAVA=[['index','Главная','home','home'],['calendar','Календарь','calendar','calendar'],['support','Поддержка','chat','support'],['settings','Настройки','gear','settings']];
+const NAVA=[['index','Главная','home','home'],['calendar','Календарь','calendar','calendar'],['quests','Квесты','trophy','quests'],['support','Поддержка','chat','support'],['settings','Настройки','gear','settings']];
 const NAVT=[['index','Главная','home','home'],['calendar','Календарь','calendar','calendar'],['students','Студенты','cap','students'],['profile','Профиль','user','profile'],['coach','QAZ Coach','bot','coach']];
 /* Красная «капсула» в нижнем меню плавно скользит от прежнего раздела к новому */
 function slideNav(){const nav=$('nav');if(!nav||!nav.querySelectorAll)return;
@@ -313,7 +335,7 @@ function slideNav(){const nav=$('nav');if(!nav||!nav.querySelectorAll)return;
  else{pill.style.transition='none';pos(cur);pill.style.opacity='1';if(pill.getBoundingClientRect)pill.getBoundingClientRect();pill.style.transition=''}
  try{sessionStorage.setItem('fitqaz_nav',String(cur))}catch(e){}}
 if(window.addEventListener)window.addEventListener('resize',()=>{const nav=$('nav');if(!nav)return;const a=nav.querySelector('a.on'),p=nav.querySelector('.pill');if(a&&p){p.style.transition='none';p.style.width=a.offsetWidth+'px';p.style.transform='translateX('+a.offsetLeft+'px)'}});
-let lastSig='';const sig=()=>JSON.stringify([U,G,SCH,UNR,ADX,MK,MKA]);
+let lastSig='';const sig=()=>JSON.stringify([U,G,SCH,QDB,UNR,ADX,MK,MKA]);
 function render(){const fn=(AD&&P['A'+page])||(T&&P['T'+page])||P[page];
  if(!fn){location.replace('index.html');return}
  $('#app').innerHTML=fn()+`<nav><span class="pill"></span>${(AD?NAVA:T?NAVT:NAV).map(n=>`<a href="${n[0]}.html" class="${n[3]===page?'on':''}">${ic(n[2])}<span>${n[1]}</span>${(n[0]==='profile'&&!AD&&UNR>0)||(n[0]==='index'&&TA&&pendReqs().length)?'<i class="nd"></i>':''}</a>`).join('')}</nav>`;
@@ -353,6 +375,8 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b
  if(a==='mkreq'){mkSend(b.dataset.d);return}
  if(a==='mkok'||a==='mkno'){mkDecide(b.dataset.sk,b.dataset.id,a==='mkok');return}
  if(a==='matt'){mkAtt(b.dataset.sk,b.dataset.id,b.dataset.v);return}
+ if(a==='qsave'){qEdit(b.dataset.i,b.dataset.q,false);return}
+ if(a==='qdel'){qEdit(0,b.dataset.q,true);return}
  if(a==='schsave'){schEdit(b.dataset.g,b.dataset.i,false);return}
  if(a==='schdel'){schEdit(b.dataset.g,0,true);return}
  if(a==='sopen'){SV.k=b.dataset.id;SV.sig=''}
@@ -368,7 +392,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b
  if(a==='grp')tv.g=b.dataset.id;
  if(a==='stu')tv.s=b.dataset.id;
  if(a==='tback'){if(tv.s)tv.s=null;else tv.g=null}
- if(a==='tq'){const r=U[tv.s];if(!r)return;const s=r.s=dflt(r.s),q=DB.quests.find(x=>x.id===id);
+ if(a==='tq'){const r=U[tv.s];if(!r)return;const s=r.s=dflt(r.s),q=QL().find(x=>x.id===id);
   s.qp[id]=Math.min(q.max,(s.qp[id]||0)+q.step);
   if(s.qp[id]>=q.max&&!s.qd.includes(id)){s.qd.push(id);s.xp+=q.xp;s.log={...s.log};s.log[TODAY]=(s.log[TODAY]||0)+q.xp;toast(`${nm(r)}: +${q.xp} XP начислено`)}
   putS(tv.s)}
