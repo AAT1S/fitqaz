@@ -18,7 +18,7 @@ const DB={
 };
 const QL=()=>QDB!==null?QDB:DB.quests;
 const qdone=qd=>qd.filter(id=>QL().some(q=>q.id===id)).length;
-const dflt=s=>{const o={xp:0,goals:[],qd:[],...(s||{})};o.qp={...o.qp};o.att={...o.att};o.mk={...o.mk};o.qd=[...o.qd];o.goals=[...o.goals];return o};
+const dflt=s=>{const o={xp:0,goals:[],qd:[],...(s||{})};o.qp={...o.qp};o.att={...o.att};o.mk={...o.mk};o.qd=[...o.qd];o.goals=[...o.goals];o.gl=(Array.isArray(o.gl)?o.gl:Object.values(o.gl||{})).filter(x=>x&&x.t).map(x=>({t:String(x.t),d:!!x.d}));return o};
 let S=dflt(USER.s);
 let UNR=0,ADX={},MK={},MKA={};
 const save=()=>{USER.s=S;U[KEY]=USER;putS(KEY)};
@@ -74,7 +74,7 @@ const mkDay=s=>{const L=allReqs().filter(r=>r.prop===s&&['approved','done','nosh
 /* --- редактор расписания (админ) --- */
 const DN={1:'пн',2:'вт',3:'ср',4:'чт',5:'пт',6:'сб',0:'вс'},DNP={1:'понедельники',2:'вторники',3:'среды',4:'четверги',5:'пятницы',6:'субботы',0:'воскресенья'};
 const serDays=d=>[1,2,3,4,5,6,0].filter(w=>d[w]).map(w=>DN[w]+(d[w].t?' '+d[w].t:'')+(d[w].n&&d[w].n!=='Физкультура'?' '+d[w].n:'')).join(', ');
-const schKey=gk=>{const nk=gnorm(G[gk]),kk=gnorm(gk);for(const k in SCH){const n=gnorm(k);if(n===nk||n===kk)return k}return G[gk]};
+const schKey=gk=>{for(const k in SCH)if(gsame(k,G[gk])||gsame(k,gk))return k;return G[gk]};
 const attView=(s,gk)=>{const L=studentsOf(gk);if(!L.length)return '';return '<div class="attv">'+L.map(r=>{const v=((r.s||{}).att||{})[s];return `<div class="ev"><small>${esc(nm(r))}</small><small>${v==='a'?'пришёл':v==='m'?'не пришёл':'не отмечен'}</small></div>`}).join('')+'</div>'};
 const editor=s=>{const w=new Date(s+'T00:00:00').getDay(),keys=Object.keys(G);
  if(!keys.length)return '<small>Групп пока нет. Добавьте группы в базе данных.</small>';
@@ -199,14 +199,33 @@ async function supSendForm(){const i=$('#si');if(!i)return;const t=i.value.trim(
  SV.sig='';supTick()}
 setInterval(supTick,2000);
 
+/* ===== Цели студента: можно добавлять, переименовывать, удалять и отмечать ===== */
+const GOALS0=['Пробежать 5 км без остановки','Сдать все нормативы','Войти в топ-3 рейтинга','Тренироваться 3 раза в неделю'];
+const goalsOf=()=>S.glc?S.gl:GOALS0.map((t,i)=>({t,d:S.goals.includes(i)}));
+let GE=-1;
+function gmut(fn){const L=goalsOf().map(x=>({...x}));fn(L);S.gl=L;S.glc=true;save()}
+function goalAdd(){const i=$('#gi'),t=i?i.value.trim():'';
+ if(!t){toast('Напишите цель');return}
+ if(goalsOf().length>=12){toast('Не больше 12 целей');return}
+ gmut(L=>L.push({t:t.slice(0,80),d:false}));if(i)i.value='';render()}
+function goalSave(){const i=$('#ge'),t=i?i.value.trim():'';
+ if(!t){toast('Цель не может быть пустой');return}
+ const k=GE;gmut(L=>{if(L[k])L[k].t=t.slice(0,80)});GE=-1;render()}
+const goalRow=(g,i)=>GE===i
+ ?`<form class="goal-ed" id="gef"><input id="ge" value="${esc(g.t)}" maxlength="80"><button class="ib ok" type="submit" title="Сохранить">${ic('check')}</button><button class="ib" type="button" data-a="gcancel" title="Отмена">${ic('x')}</button></form>`
+ :`<div class="goal ${g.d?'on':''}"><span class="gchk" data-a="goal" data-id="${i}">${g.d?ic('check'):''}</span><span class="gt" data-a="goal" data-id="${i}">${esc(g.t)}</span><button class="ib" data-a="gedit" data-id="${i}" title="Изменить">${ic('pen')}</button><button class="ib" data-a="gdel" data-id="${i}" title="Удалить">${ic('trash')}</button></div>`;
 const tv={g:null,s:null};
 const pts=r=>scoreOf(r.s&&r.s.xp);
 const srow=(r,a)=>{const tg=a?'button':'div';return `<${tg} class="sr" ${a?`data-a="stu" data-id="${r.k}"`:''}><span class="av">${nm(r)[0]}</span><div><b>${nm(r)}</b><small>${[gname(r),a?qdone(dflt(r.s).qd)+'/'+QL().length+' заданий':''].filter(Boolean).join(' · ')}</small></div><em>${pts(r)}${ic('flame')}${a?ic('chev'):''}</em></${tg}>`};
 const TR={а:'a',ә:'a',б:'b',в:'v',г:'g',ғ:'g',д:'d',е:'e',ё:'e',ж:'zh',з:'z',и:'i',і:'i',й:'i',к:'k',қ:'k',л:'l',м:'m',н:'n',ң:'n',о:'o',ө:'o',п:'p',р:'r',с:'s',т:'t',у:'u',ұ:'u',ү:'u',ф:'f',х:'h',һ:'h',ц:'c',ч:'ch',ш:'sh',щ:'sh',ы:'y',э:'e',ю:'u',я:'a'};
 const gnorm=x=>[...String(x).toLowerCase()].map(c=>TR[c]!==undefined?TR[c]:c).join('').replace(/[^a-z0-9]/g,'');
+/* Латинские буквы-двойники (C, P, X…) считаем теми же, что и кириллические: «СИБ» и «CИБ» — одна группа */
+const LK={a:'а',c:'с',e:'е',o:'о',p:'р',x:'х',y:'у',k:'к',m:'м',t:'т',h:'н',b:'в'};
+const gnorm2=x=>gnorm([...String(x).toLowerCase()].map(c=>LK[c]||c).join(''));
+const gsame=(p,q)=>gnorm(p)===gnorm(q)||gnorm2(p)===gnorm2(q);
 const gKeyOf=r=>{if(r.group==null||r.group==='')return null;const v=String(r.group),nv=gnorm(v);
  for(const k in G)if(k===v||G[k]===v)return k;
- for(const k in G)if(gnorm(G[k])===nv||gnorm(k)===nv)return k;return null};
+ for(const k in G)if(gsame(G[k],v)||gsame(k,v))return k;return null};
 const unmatched=()=>reals().filter(r=>r.group!=null&&r.group!==''&&!gKeyOf(r));
 const studentsOf=g=>reals().filter(r=>gKeyOf(r)===g).sort((a,b)=>nm(a).localeCompare(nm(b)));
 const gname=r=>{const k=gKeyOf(r);return k?G[k]:(r.group?String(r.group):'')};
@@ -217,7 +236,7 @@ const DW={пн:1,вт:2,ср:3,чт:4,пт:5,сб:6,вс:0,mo:1,tu:2,we:3,th:4,f
 function parseDays(str){const out={};String(str).split(/[,\n]/).forEach(tok=>{tok=tok.trim();if(!tok)return;const m=tok.match(/^(\S+)\s*(.*)$/);if(!m)return;
  const w=DW[m[1].toLowerCase().slice(0,2)];if(w===undefined)return;let rest=m[2],t='';const tm=rest.match(/(\d{1,2}):(\d{2})/);
  if(tm){t=tm[1].padStart(2,'0')+':'+tm[2];rest=rest.replace(tm[0],'')}out[w]={t,n:rest.trim()||'Физкультура'}});return out}
-const schOf=gk=>{if(!gk)return{};const nk=gnorm(G[gk]),kk=gnorm(gk);for(const k in SCH){const n=gnorm(k);if(n===nk||n===kk)return parseDays(SCH[k])}return{}};
+const schOf=gk=>{if(!gk)return{};for(const k in SCH)if(gsame(k,G[gk])||gsame(k,gk))return parseDays(SCH[k]);return{}};
 const myDays=()=>schOf(gKeyOf(USER));
 const schNote=()=>TA?(Object.keys(SCH).length?'':'<p class="muted" style="margin-bottom:12px">Расписание групп не задано в базе данных</p>'):(Object.keys(myDays()).length?'':'<p class="muted" style="margin-bottom:12px">Расписание вашей группы пока не задано</p>');
 const tile=(h,i,b,s,n)=>`<a class="tile t-${i}" href="${h}"><span class="orb">${ic(i)}</span><span class="arr">${ic('chev')}</span>${n?`<span class="cnt abs">${n}</span>`:''}<b>${b}</b><small>${s}</small></a>`;
@@ -270,11 +289,11 @@ return head('Успеваемость')+`
 <div class="card"><h2>Активность за неделю (XP)</h2><div class="chart">${(()=>{const w=weekData(),mx=Math.max(1,...w.map(x=>x[1]));return w.map(x=>`<div>${x[1]}<u style="height:${x[1]/mx*100}%"></u>${x[0]}</div>`).join('')})()}</div></div>
 <div class="card"><h2>Нормативы</h2><small>Результаты появятся после сдачи нормативов</small>${DB.norms.map(n=>`<div class="nm"><div class="row"><span>${n[0]}</span><small>${n[1]}%</small></div><i class="bar"><u style="width:${n[1]}%"></u></i></div>`).join('')}</div>`},
 
-profile(){const G=['Пробежать 5 км без остановки','Сдать все нормативы','Войти в топ-3 рейтинга','Тренироваться 3 раза в неделю'];
+profile(){const GL=goalsOf();
 const B=[['spark','Первый шаг',S.xp>0],['bolt','Бегун',S.xp>=400],['trophy','Квестер',S.qd.length>0],['star','Уровень 2',S.xp>=500],['calcheck','Активист',Object.keys(S.att).length+Object.keys(S.mk).length>=3],['crown','Лидер',S.xp>=1000]];
 return head('Профиль')+`
 <div class="card pf"><span class="av">${nm(USER)[0]}</span><h2>${nm(USER)}</h2><small>${gname(USER)?gname(USER)+' · ':''}${score()} баллов</small></div>
-<div class="card"><h2>Мои цели</h2>${G.map((g,i)=>`<div class="goal ${S.goals.includes(i)?'on':''}" data-a="goal" data-id="${i}"><span>${S.goals.includes(i)?ic('check'):''}</span>${g}</div>`).join('')}</div>
+<div class="card"><div class="row"><h2>Мои цели</h2><small>${GL.filter(x=>x.d).length} из ${GL.length}</small></div>${GL.map(goalRow).join('')||'<small>Целей пока нет — добавьте первую</small>'}${GL.length<12?`<form class="goal-add" id="gf"><input id="gi" placeholder="Новая цель…" maxlength="80" autocomplete="off"><button class="btn sm">${ic('plus')}Добавить</button></form>`:'<small>Достигнут максимум — 12 целей</small>'}</div>
 <div class="card"><h2 style="margin-bottom:10px">Достижения</h2><div class="badges">${B.map(b=>`<div class="bd ${b[2]?'':'off'}"><i>${ic(b[0])}</i>${b[1]}</div>`).join('')}</div></div>
 <div class="stack"><a class="btn ghost" href="support.html">${ic('chat')}Написать в поддержку${UNR>0?`<span class="cnt">${UNR}</span>`:''}</a><a class="btn" href="settings.html">${ic('gear')}Настройки</a></div>`},
 
@@ -341,7 +360,8 @@ function render(){const fn=(AD&&P['A'+page])||(T&&P['T'+page])||P[page];
  $('#app').innerHTML=fn()+`<nav><span class="pill"></span>${(AD?NAVA:T?NAVT:NAV).map(n=>`<a href="${n[0]}.html" class="${n[3]===page?'on':''}">${ic(n[2])}<span>${n[1]}</span>${(n[0]==='profile'&&!AD&&UNR>0)||(n[0]==='index'&&TA&&pendReqs().length)?'<i class="nd"></i>':''}</a>`).join('')}</nav>`;
  rankFx();lastSig=sig();slideNav();if(page==='coach')toBottom();if(page==='support')supTick()}
 
-async function sync(){await refresh();await supPoll();mkNotify();const m=U[KEY];if(!m||document.querySelector('.modal')||sig()===lastSig)return;
+const typing=()=>{const a=document.activeElement;return !!(a&&a.tagName==='INPUT'&&a.closest&&a.closest('#app'))};
+async function sync(){await refresh();await supPoll();mkNotify();const m=U[KEY];if(!m||document.querySelector('.modal')||typing()||sig()===lastSig)return;
  const old=S.xp;USER=m;S=dflt(m.s);
  if(!T&&S.xp>old)toast('+'+(S.xp-old)+' XP — подтвердил преподаватель');
  if(page==='coach'||page==='support'){lastSig=sig();return}
@@ -367,7 +387,9 @@ function pwdModal(){const m=document.createElement('div');m.className='modal';
   if(v('p1')===v('p0'))return er('Новый пароль совпадает со старым');
   r.salt=newSalt();r.hash=await hash(v('p1'),r.salt);putUser(KEY);m.remove();toast('Пароль изменён')}}
 
-document.addEventListener('submit',e=>{if(!e.target)return;if(e.target.id==='sf'){e.preventDefault();supSendForm();return}
+document.addEventListener('submit',e=>{if(!e.target)return;if(e.target.id==='gf'){e.preventDefault();goalAdd();return}
+ if(e.target.id==='gef'){e.preventDefault();goalSave();return}
+ if(e.target.id==='sf'){e.preventDefault();supSendForm();return}
  if(e.target.id!=='cf')return;e.preventDefault();const i=$('#ci');if(!i)return;const t=i.value;i.value='';sendChat(t)});
 document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a,id=+b.dataset.id;
  if(a==='timer')return timer();
@@ -388,7 +410,10 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b
  if(a==='att'){const r=U[b.dataset.id];if(!r)return;const s=r.s=dflt(r.s),d=cal.sel,v=b.dataset.v,p=s.att[d];if(p===v)return;
   s.att[d]=v;if(v==='a'&&p!=='a'){s.xp+=10;s.log={...s.log};s.log[TODAY]=(s.log[TODAY]||0)+10;toast(`${nm(r)}: пришёл, +10 XP`)}else if(v!=='a'&&p==='a')s.xp=Math.max(0,s.xp-10);
   putS(b.dataset.id)}
- if(a==='goal'){S.goals=S.goals.includes(id)?S.goals.filter(x=>x!==id):[...S.goals,id];save()}
+ if(a==='goal')gmut(L=>{if(L[id])L[id].d=!L[id].d});
+ if(a==='gedit')GE=id;
+ if(a==='gcancel')GE=-1;
+ if(a==='gdel'){GE=-1;gmut(L=>{L.splice(id,1)})}
  if(a==='grp')tv.g=b.dataset.id;
  if(a==='stu')tv.s=b.dataset.id;
  if(a==='tback'){if(tv.s)tv.s=null;else tv.g=null}
