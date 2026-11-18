@@ -1,5 +1,5 @@
 /* Подхватываем свежий style.css, даже если браузер держит старый в кеше */
-(function(){const l=document.querySelector&&document.querySelector('link[href^="style.css"]');if(l&&!/[?]v=/.test(l.getAttribute('href')))l.setAttribute('href','style.css?v=11')})();
+(function(){const l=document.querySelector&&document.querySelector('link[href^="style.css"]');if(l&&!/[?]v=/.test(l.getAttribute('href')))l.setAttribute('href','style.css?v=12')})();
 /* Настройки оформления (тема, размер текста, анимации) — хранятся на устройстве */
 function applyPrefs(){const r=document.documentElement;if(!r)return;const g=k=>{try{return localStorage.getItem('fitqaz_'+k)}catch(e){return null}};
  r.dataset.theme=g('theme')||'dark';r.dataset.size=g('size')||'normal';r.dataset.anim=g('anim')||'on'}
@@ -34,6 +34,10 @@ const IC={
  warn:'<path d="M12 4.6 3.9 18.6h16.2L12 4.6Z"/><path d="M12 10.2v3.6"/><circle cx="12" cy="16.6" r=".6" fill="currentColor"/>',
  clock:'<circle cx="12" cy="12" r="8.3"/><path d="M12 7.6V12l3 2"/>',
  check:'<path d="m5.6 12.6 4 4 8.8-9.2"/>',
+ pen:'<path d="M4.8 19.2l.9-3.7L16.2 5a2 2 0 0 1 2.8 0 2 2 0 0 1 0 2.8L8.5 18.3l-3.7.9Z"/><path d="m14.6 6.6 2.8 2.8"/>',
+ trash:'<path d="M5 7h14M10 7V5.6A1.6 1.6 0 0 1 11.6 4h.8A1.6 1.6 0 0 1 14 5.6V7"/><path d="M6.6 7l.8 11.2A1.8 1.8 0 0 0 9.2 20h5.6a1.8 1.8 0 0 0 1.8-1.8L17.4 7"/><path d="M10 11v5M14 11v5"/>',
+ x:'<path d="m6.8 6.8 10.4 10.4M17.2 6.8 6.8 17.2"/>',
+ plus:'<path d="M12 5.5v13M5.5 12h13"/>',
  chat:'<path d="M5 6.8A2.8 2.8 0 0 1 7.8 4h8.4A2.8 2.8 0 0 1 19 6.8v6.4a2.8 2.8 0 0 1-2.8 2.8H12l-4 3.6V16h-.2A2.8 2.8 0 0 1 5 13.2V6.8Z"/><circle cx="9.2" cy="10" r=".8" fill="currentColor"/><circle cx="12" cy="10" r=".8" fill="currentColor"/><circle cx="14.8" cy="10" r=".8" fill="currentColor"/>'
 };
 const ic=n=>IC[n]?`<svg class="ic ic-${n}" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]}</svg>`:'';
